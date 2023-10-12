@@ -8,7 +8,7 @@ import (
 
 func imageHandler(w http.ResponseWriter, r *http.Request) {
 
-	buf, err := catpcha.NewTextImage("AAD1", catpcha.TextImageMeta{
+	buf, err := catpcha.NewTextImage("hj3R", catpcha.TextImageMeta{
 		Width:  120,
 		Height: 40,
 	})
