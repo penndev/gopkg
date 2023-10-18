@@ -14,6 +14,15 @@ var DefaultFont *truetype.Font
 
 var DefaultText = []string{"a", "b", "c", "d", "e", "f", "g", "h", "j", "k", "m", "n", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "M", "N", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "2", "3", "4", "5", "6", "7", "8", "9"}
 
+func RandText(strlen int) string {
+	str := ""
+	defaultTextLen := len(DefaultText)
+	for i := 0; i < strlen; i++ {
+		str += DefaultText[rand.Intn(defaultTextLen)]
+	}
+	return str
+}
+
 //go:embed catpcha.ttf
 var fontFile []byte
 
@@ -34,13 +43,11 @@ type Option struct {
 }
 
 func NewOption() Option {
-	ol := len(DefaultText)
-	c1, c2, c3, c4 := DefaultText[rand.Intn(ol)], DefaultText[rand.Intn(ol)], DefaultText[rand.Intn(ol)], DefaultText[rand.Intn(ol)]
 	return Option{
 		Width:    120,
 		Height:   30,
 		DPI:      90,
-		Text:     c1 + c2 + c3 + c4,
+		Text:     RandText(4),
 		FontSize: 20,
 	}
 }
