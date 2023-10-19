@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"image"
+	"image/color"
 	"image/png"
 	"math/rand"
 
@@ -11,17 +12,6 @@ import (
 )
 
 var DefaultFont *truetype.Font
-
-var DefaultText = []string{"a", "b", "c", "d", "e", "f", "g", "h", "j", "k", "m", "n", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "M", "N", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "2", "3", "4", "5", "6", "7", "8", "9"}
-
-func RandText(strlen int) string {
-	str := ""
-	defaultTextLen := len(DefaultText)
-	for i := 0; i < strlen; i++ {
-		str += DefaultText[rand.Intn(defaultTextLen)]
-	}
-	return str
-}
 
 //go:embed catpcha.ttf
 var fontFile []byte
@@ -32,6 +22,25 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+var DefaultText = []string{"a", "b", "c", "d", "e", "f", "h", "j", "k", "m", "n", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "C", "D", "E", "F", "G", "H", "J", "K", "M", "N", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "2", "3", "4", "5", "6", "7"}
+
+func RandText(strlen int) string {
+	str := ""
+	defaultTextLen := len(DefaultText)
+	for i := 0; i < strlen; i++ {
+		str += DefaultText[rand.Intn(defaultTextLen)]
+	}
+	return str
+}
+
+var DefaultTextColor = []color.Color{
+	color.RGBA{0, 0, 0, 255},
+}
+
+func RandTextColor() color.Color {
+	return DefaultTextColor[rand.Intn(len(DefaultTextColor))]
 }
 
 type Option struct {
@@ -52,8 +61,7 @@ func NewOption() Option {
 	}
 }
 
-func DefaultImg() (*bytes.Buffer, error) {
-	option := NewOption()
+func NewPngImg(option Option) (*bytes.Buffer, error) {
 	img := textimg{
 		rgba:   image.NewRGBA(image.Rect(0, 0, option.Width, option.Height)),
 		Option: option,

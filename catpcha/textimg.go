@@ -20,7 +20,6 @@ func (img *textimg) drawFont() {
 	fc.SetDst(img.rgba)
 	fc.SetDPI(img.DPI)
 	fc.SetFontSize(img.FontSize)
-	fc.SetSrc(image.Black) //!!!!
 	fontSize := int(img.FontSize * img.DPI / 90)
 	fontItemWidth := (img.Width - fontSize) / len(img.Text)
 	// align-items center
@@ -31,7 +30,8 @@ func (img *textimg) drawFont() {
 		fontCenter = (fontItemWidth - fontSize) / 2
 	}
 	for _, char := range img.Text {
-		fc.SetSrc(image.Black)
+		tcolor := RandTextColor()
+		fc.SetSrc(image.NewUniform(tcolor))
 		fc.DrawString(string(char), freetype.Pt(fontX+fontCenter, fontY))
 		fontCenter += fontItemWidth
 	}
@@ -54,9 +54,10 @@ func (img *textimg) sin() {
 func (img *textimg) curve() {
 	y := rand.Intn(img.Height/2) + img.Height/3
 	yr := (rand.Float64() * 2)
+	tcolor := RandTextColor()
 	for x := 0; x < img.Width; x++ {
 		yo := int(math.Sin(math.Pi*yr*float64(x)/float64(img.Width)) * 10)
-		img.rgba.Set(x, y+yo, image.Black)
+		img.rgba.Set(x, y+yo, tcolor)
 	}
 }
 
@@ -67,11 +68,12 @@ func (img *textimg) circle() {
 		r := rand.Intn(size) + 1
 		x := rand.Intn(img.Width)
 		y := rand.Intn(img.Height)
+		tcolor := RandTextColor()
 		for i := 0; i < r; i++ {
-			img.rgba.Set(x+i, y, image.Black)
-			img.rgba.Set(x-i, y, image.Black)
-			img.rgba.Set(x, y+i, image.Black)
-			img.rgba.Set(x, y-i, image.Black)
+			img.rgba.Set(x+i, y, tcolor)
+			img.rgba.Set(x-i, y, tcolor)
+			img.rgba.Set(x, y+i, tcolor)
+			img.rgba.Set(x, y-i, tcolor)
 		}
 	}
 }

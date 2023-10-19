@@ -1,21 +1,22 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/penndev/gopkg/catpcha"
 )
 
 func imageHandler(w http.ResponseWriter, r *http.Request) {
-
-	buf, err := catpcha.DefaultImg()
+	vf, err := catpcha.NewImg()
 	if err != nil {
 		w.Write([]byte(err.Error()))
 		return
 	}
-
-	w.Header().Set("Content-Type", "image/png")
-	w.Write(buf.Bytes())
+	log.Println(vf.ID)
+	catpcha.Verify(vf.ID, "1234")
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte("<img src=\"" + vf.PngBase64 + "\"/>"))
 }
 
 func main() {
