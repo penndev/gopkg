@@ -24,13 +24,13 @@ func init() {
 	}
 }
 
-var DefaultText = []string{"a", "b", "c", "d", "e", "f", "h", "j", "k", "m", "n", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "C", "D", "E", "F", "G", "H", "J", "K", "M", "N", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "2", "3", "4", "5", "6", "7"}
+var DefaultText = []rune{'a', 'b', 'c', 'd', 'e', 'f', 'h', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '2', '3', '4', '5', '6', '7'}
 
 func RandText(strlen int) string {
 	str := ""
 	defaultTextLen := len(DefaultText)
 	for i := 0; i < strlen; i++ {
-		str += DefaultText[rand.Intn(defaultTextLen)]
+		str += string(DefaultText[rand.Intn(defaultTextLen)])
 	}
 	return str
 }
