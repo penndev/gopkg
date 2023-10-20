@@ -1,4 +1,4 @@
-package catpcha
+package captcha
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 
 var DefaultFont *truetype.Font
 
-//go:embed catpcha.ttf
+//go:embed captcha.ttf
 var fontFile []byte
 
 func init() {

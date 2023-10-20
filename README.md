@@ -14,12 +14,12 @@
 1. 获取验证码图片
 > 获取验证码id和验证码图片（base64）
 
-    catpcha.NewImg
+    captcha.NewImg
 
 2. 验证是否正确
 > 传入验证码ID，和用户输入。返回是否验证成功。
 
-    catpcha.Verify
+    captcha.Verify
 
 ## 缓存 
 > 实现部分redis的功能。更轻量的使用内存管理。

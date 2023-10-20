@@ -2,7 +2,6 @@ package ttlmap
 
 import (
 	"container/list"
-	"log"
 	"sync"
 	"time"
 )
@@ -39,11 +38,9 @@ func (m *TTLMap) initTTL() {
 				if now < td.expried {
 					time.Sleep(time.Duration(td.expried-now) * time.Second)
 				}
-				if v, ok := m.Load(td.key); ok {
-					log.Println("load -> " + v.(string))
+				if _, ok := m.Load(td.key); ok {
+					m.Delete(td.key)
 				}
-				m.Delete(td.key)
-				log.Println("delete -> " + td.key.(string))
 			}
 			m.expried.Remove(elements)
 		}

@@ -1,4 +1,4 @@
-package catpcha
+package captcha
 
 import (
 	"image"
