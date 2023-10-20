@@ -2,6 +2,7 @@ package catpcha
 
 import (
 	"encoding/base64"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,9 +39,7 @@ func NewImg() (*VerifyData, error) {
 func Verify(id, code string) bool {
 	if val, ok := Store.Load(id); ok {
 		if scode, ok := val.(string); ok {
-			if code == scode {
-				return true
-			}
+			return strings.EqualFold(code, scode)
 		}
 	}
 	return false

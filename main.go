@@ -21,9 +21,7 @@ func imageHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/image", imageHandler)
-
-	// 启动 HTTP 服务器
-	if err := http.ListenAndServe("127.0.0.1:8089", nil); err != nil {
+	if err := http.ListenAndServe("127.0.0.1:8000", nil); err != nil {
 		panic(err)
 	}
 }
