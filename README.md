@@ -21,7 +21,7 @@
 
     captcha.Verify
 
-## 缓存 
+## 带生存周期的哈希表 
 > 实现部分redis的功能。更轻量的使用内存管理。
 
     // 创建一个缓存  
@@ -29,3 +29,6 @@
     // 存储数据
     c.Set(key,val)
     c.Load(key)
+
+## IP地址库 qqwry
+> 纯真IP库 cz88.net 的golang解析封装
