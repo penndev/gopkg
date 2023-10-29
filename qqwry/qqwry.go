@@ -52,7 +52,7 @@ func (qqwry *QQWry) areaParese(offset int) (string, string) {
 	default:
 		len := 0
 		country, len = qqwry.parsetString(offset)
-		area, _ = qqwry.parsetString(offset + len)
+		area, _ = qqwry.parsetString(offset + len + 1)
 	}
 	return country, area
 }

@@ -32,3 +32,5 @@
 
 ## IP地址库 qqwry
 > 纯真IP库 cz88.net 的golang解析封装
+
+    qqwry.Find("255.255.255.255")
