@@ -16,7 +16,11 @@ import (
 	"gvisor.dev/gvisor/pkg/waiter"
 )
 
-func NewTCPConn(r *tcp.ForwarderRequest) (net.Conn, error) {
+type ForwarderTCPRequest struct {
+	*tcp.ForwarderRequest
+}
+
+func (r *ForwarderTCPRequest) TCPConn() (net.Conn, error) {
 	var (
 		waiterQueue waiter.Queue
 	)
@@ -30,12 +34,31 @@ func NewTCPConn(r *tcp.ForwarderRequest) (net.Conn, error) {
 	return localConn, nil
 }
 
-type StackOption struct {
-	HandleTCP func(*tcp.ForwarderRequest)
-	EndPoint  stack.LinkEndpoint
+type ForwarderUDPRequest struct {
+	*udp.ForwarderRequest
 }
 
-func New(option StackOption) {
+func (r *ForwarderUDPRequest) UDPConn() (net.Conn, error) {
+	var (
+		waiterQueue waiter.Queue
+	)
+	endPoint, err := r.CreateEndpoint(&waiterQueue)
+	if err != nil {
+		return nil, errors.New(err.String())
+	}
+	localConn := gonet.NewUDPConn(&waiterQueue, endPoint)
+	return localConn, nil
+}
+
+type Option struct {
+	Mtu        int
+	Device     string
+	HandleTCP  func(*ForwarderTCPRequest)
+	handlerUDP func(*ForwarderUDPRequest)
+	EndPoint   stack.LinkEndpoint
+}
+
+func Start(option Option) {
 	s := stack.New(stack.Options{
 		NetworkProtocols: []stack.NetworkProtocolFactory{
 			ipv4.NewProtocol,
@@ -49,11 +72,11 @@ func New(option StackOption) {
 		},
 	})
 
-	tcpForwarder := tcp.NewForwarder(s, 0, 2048, option.HandleTCP)
+	tcpForwarder := tcp.NewForwarder(s, 0, 2048, func(fr *tcp.ForwarderRequest) { option.HandleTCP(&ForwarderTCPRequest{fr}) })
 	s.SetTransportProtocolHandler(tcp.ProtocolNumber, tcpForwarder.HandlePacket)
 
-	// udpForwarder := udp.NewForwarder(s, HandleUDP)
-	// s.SetTransportProtocolHandler(udp.ProtocolNumber, udpForwarder.HandlePacket)
+	udpForwarder := udp.NewForwarder(s, func(fr *udp.ForwarderRequest) { option.handlerUDP(&ForwarderUDPRequest{fr}) })
+	s.SetTransportProtocolHandler(udp.ProtocolNumber, udpForwarder.HandlePacket)
 
 	nicID := tcpip.NICID(s.UniqueID())
 	s.CreateNICWithOptions(nicID, option.EndPoint, stack.NICOptions{
