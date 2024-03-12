@@ -10,16 +10,4 @@ require (
 	golang.org/x/text v0.14.0
 )
 
-require (
-	github.com/google/btree v1.1.2 // indirect
-	golang.org/x/mobile v0.0.0-20240213143359-d1f7d3436075 // indirect
-	golang.org/x/mod v0.15.0 // indirect
-	golang.org/x/sys v0.17.0 // indirect
-	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.18.0 // indirect
-)
-
-require (
-	golang.org/x/image v0.15.0 // indirect
-	gvisor.dev/gvisor v0.0.0-20240215211334-a66ecfdd829a
-)
+require golang.org/x/image v0.15.0 // indirect
