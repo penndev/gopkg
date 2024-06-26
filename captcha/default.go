@@ -1,31 +1,15 @@
 package captcha
 
 import (
-	_ "embed"
 	"encoding/base64"
 	"image/color"
 	"math/rand"
 	"strings"
 	"time"
 
-	"github.com/golang/freetype/truetype"
 	"github.com/google/uuid"
 	"github.com/penndev/gopkg/ttlmap"
 )
-
-//go:embed captcha.ttf
-var fontFile []byte
-
-var Store ttlmap.TTLMap
-
-func init() {
-	var err error
-	DefaultFont, err = truetype.Parse(fontFile)
-	if err != nil {
-		panic(err)
-	}
-	Store = *ttlmap.New(5 * time.Minute)
-}
 
 type VerifyData struct {
 	ID        string
@@ -42,7 +26,17 @@ func RandText(strlen int) string {
 	return str
 }
 
+// 默认的单机存储ttlmap,主要是为了单机开发适配。
+var Store ttlmap.TTLMap
+
+var StoreAlive = 5 * time.Minute
+
 func NewImg() (*VerifyData, error) {
+
+	if Store.GetDelay() < time.Second {
+		Store = *ttlmap.New(StoreAlive)
+	}
+
 	option := Option{
 		Width:     120,
 		Height:    30,
@@ -67,8 +61,9 @@ func NewImg() (*VerifyData, error) {
 
 func Verify(id, code string) bool {
 	if val, ok := Store.Load(id); ok {
-		if scode, ok := val.(string); ok {
-			return strings.EqualFold(code, scode)
+		if storeCode, ok := val.(string); ok {
+			Store.Delete(id)
+			return strings.EqualFold(code, storeCode)
 		}
 	}
 	return false

@@ -2,6 +2,7 @@ package captcha
 
 import (
 	"bytes"
+	_ "embed"
 	"image"
 	"image/color"
 	"image/png"
@@ -9,7 +10,11 @@ import (
 	"github.com/golang/freetype/truetype"
 )
 
-var DefaultFont *truetype.Font
+//go:embed captcha.ttf
+var fontFile []byte
+
+// 默认的字体可重置。
+var DefaultFont, _ = truetype.Parse(fontFile)
 
 type Option struct {
 	Width     int

@@ -6,52 +6,63 @@ import (
 	"time"
 )
 
-type ttldelay struct {
+type ttlDelay struct {
 	key     any
-	expried int64
+	expired int64
 }
 
 type TTLMap struct {
-	sync.Map
-	expried *list.List
-	delay   time.Duration
+	sync.Map               //数据真实存储map
+	list     *list.List    //过期列表
+	delay    time.Duration //存活时间
 }
 
+func (m *TTLMap) GetDelay() time.Duration {
+	return m.delay
+}
+
+// 设置值并保存
 func (m *TTLMap) Set(key, val any) {
 	exp := time.Now().Add(m.delay)
 	m.Store(key, val)
-	m.expried.PushBack(ttldelay{
+	m.list.PushBack(ttlDelay{
 		key:     key,
-		expried: exp.Unix(),
+		expired: exp.Unix(),
 	})
 }
 
+// 开启时间轮
 func (m *TTLMap) initTTL() {
 	for {
-		if m.expried.Len() == 0 {
+		if m.list.Len() == 0 {
 			time.Sleep(m.delay)
 		} else {
-			elements := m.expried.Front()
-			if td, ok := elements.Value.(ttldelay); ok {
+			elements := m.list.Front()
+			if td, ok := elements.Value.(ttlDelay); ok {
 				// 判断是否到期。
 				now := time.Now().Unix()
-				if now < td.expried {
-					time.Sleep(time.Duration(td.expried-now) * time.Second)
+				if now < td.expired {
+					time.Sleep(time.Duration(td.expired-now) * time.Second)
 				}
 				if _, ok := m.Load(td.key); ok {
 					m.Delete(td.key)
 				}
 			}
-			m.expried.Remove(elements)
+			m.list.Remove(elements)
 		}
 	}
 }
 
+// delay time.Duration后删除
+// > 最少1秒,低于1秒重置为1秒。
 func New(delay time.Duration) *TTLMap {
-	ttlmap := &TTLMap{
-		delay:   delay,
-		expried: list.New(),
+	if delay < 1*time.Second {
+		delay = 1 * time.Second
 	}
-	go ttlmap.initTTL()
-	return ttlmap
+	ttlMap := &TTLMap{
+		delay: delay,
+		list:  list.New(),
+	}
+	go ttlMap.initTTL()
+	return ttlMap
 }
