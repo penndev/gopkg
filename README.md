@@ -10,7 +10,7 @@
 ## 验证码 captcha
 
 ```golang
-    import "github.com/penndev/gopkg/captcha"
+import "github.com/penndev/gopkg/captcha"
 ```
 
 - 简单模式 不考虑存储，单机部署，中小型项目首选
@@ -46,22 +46,22 @@
     if err != nil //
     ```
 
-## TTLMap 带生存周期的Sync.Map
+## 缓存 ttlmap (sync.Map)
 
 ```golang
-    import "github.com/penndev/gopkg/ttlmap"
-    ...
-    // 创建了一个5分钟后会自动删除的sync.Map
-    // 生存周期最小为1秒低于1秒会被重置为1秒
-    // 基于协程时间轮实现
-    syncMap := ttlmap.New(5 * time.Minute)
+import "github.com/penndev/gopkg/ttlmap"
+...
+// 创建了一个5分钟后会自动删除的sync.Map
+// 生存周期最小为1秒低于1秒会被重置为1秒
+// 基于协程时间轮实现
+syncMap := ttlmap.New(5 * time.Minute)
 ```
 
 ## IP地址库 qqwry
 > 纯真IP库 cz88.net 的golang解析封装
 
 ```golang
-    import "github.com/penndev/gopkg/qqwry"
-    ...
-    qqwry.Find("255.255.255.255")
+import "github.com/penndev/gopkg/qqwry"
+...
+qqwry.Find("255.255.255.255")
 ```
