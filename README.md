@@ -79,8 +79,8 @@ import "github.com/penndev/gopkg/ttlmap"
 syncMap := ttlmap.New(5 * time.Minute)
 ```
 
-## IP地址库(qqwry) CZDB
-> 纯真IP库中的数据绑定
+## IP地址库qqwry
+> 纯真IP库数据qqwery.dat数据解析的golang实现 （官方在 2024 年 10 月份已停止维护，官方已无发布dat格式文件。）
 
 ```golang
 import "github.com/penndev/gopkg/qqwry"
