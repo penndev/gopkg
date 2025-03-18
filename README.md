@@ -1,52 +1,74 @@
-# gopkg
+# GOPKG
 
-> 开发过程中需要各种的库，本来不想重复造轮子。 但是总是有一些库无法满足依赖要求（使用不够简单，依赖复杂）
+> 这是一个实用的 Go 工具库集合，专注于提供简单、轻量且易用的功能组件。我们在开发过程中，经常会遇到一些常用功能需求，比如验证码生成、缓存管理等。虽然已有不少开源库可供选择，但它们往往过于复杂或依赖繁重。因此我们开发了这个工具库，旨在提供更加简洁和实用的解决方案。
 
-**gopkg中的库基于两个原则**
-
-1. 使用简单，加快开发流程减少心智负担。
-2. 依赖简单，尽量仅依赖标准库和官方库。
+- 可以自定义字体库
 
 ## 验证码 captcha
 
+**验证模式**
+> 内部使用ttlmap来进行数据验证存储部分
+
 ```golang
 import "github.com/penndev/gopkg/captcha"
+
+// 生成验证码
+func Captcha(c *gin.Context) {
+	vd, err := captcha.NewImg()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{Message: "获取验证码出错"})
+		return
+	}
+	c.JSON(http.StatusOK, bindCaptcha{
+		CaptchaID:  vd.ID,
+		CaptchaURL: vd.PngBase64,
+	})
+}
+
+
+type bindCaptchaInput struct {
+	Captcha   string `binding:"required,alphanum,len=4"` // 验证码
+	CaptchaId string `binding:"required,uuid"`           // 验证码ID
+}
+
+func Check(c *gin.Context) {
+	var request bindCaptchaInput
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{Message: "参数错误"})
+		return
+	}
+
+	// 验证验证码
+	if !captcha.Verify(request.CaptchaId, request.Captcha) {
+		c.JSON(http.StatusForbidden, gin.H{Message: "验证码错误"})
+		return
+	}
+}
+
 ```
 
-- 简单模式 不考虑存储，单机部署，中小型项目首选
+**图片模式** 
 
-    1. 获取验证码图片，获取验证码id和验证码图片（base64）
-        ```golang
-        data, err := captcha.NewImg()
-        data.ID        // 验证码ID
-        data.PngBase64 //验证码base64编码数据
-        if err != nil // 
-        ```
+> 根据自定义内容生成图片自定义验证流程。一个字符设置为30的宽度为建议的值
 
-    2. 验证是否正确，传入验证码ID，和用户输入。返回是否验证成功。
-        ```golang
-        isVerify := captcha.Verify()
-        //isVerify true 验证通过
-        ```
+```golang
 
-- 复杂模式 根据自定义内容生成图片
+// buf 为png图片字节数据
+buf, err := captcha.NewPngImg(captcha.Option{
+    Width:     120,
+    Height:    30,
+    DPI:       90,
+    Text:      captcha.RandText(4),
+    FontSize:  20,
+    TextColor: color.RGBA{0, 0, 0, 255},
+})
 
-    ```golang
-    // 定义图片参数
-    option := captcha.Option{
-        Width:     120,
-        Height:    30,
-        DPI:       90,
-        Text:      RandText(4),
-        FontSize:  20,
-        TextColor: color.RGBA{0, 0, 0, 255},
-    }
-    // buf 为图片字节数据
-    buf, err := captcha.NewPngImg(option)
-    if err != nil //
-    ```
+```
 
 ## 缓存 ttlmap (sync.Map)
+> 简单的内存ttl sync.Map封装，使用go程进行后台时间轮管理。
+
 
 ```golang
 import "github.com/penndev/gopkg/ttlmap"
@@ -57,8 +79,10 @@ import "github.com/penndev/gopkg/ttlmap"
 syncMap := ttlmap.New(5 * time.Minute)
 ```
 
-## IP地址库 qqwry
-> 纯真IP库 cz88.net 的golang解析封装
+## IP地址库(qqwry) CZDB
+> 纯真(CZ88.NET)自2005年起一直为广大社区用户提供社区版IP地址库，只要获得纯真的授权就能免费使用，并不断获取后续更新的版本。如果有需要免费版IP库的朋友可以前往纯真的官网进行申请。
+纯真除了免费的社区版IP库外，还提供数据更加准确、服务更加周全的商业版IP地址查询数据。纯真围绕IP地址，基于 网络空间拓扑测绘 + 移动位置大数据 方案，对IP地址定位、IP网络风险、IP使用场景、IP网络类型、秒拨侦测、VPN侦测、代理侦测、爬虫侦测、真人度等均有近20年丰富的数据沉淀。感谢纯真提供基础数据支持
+
 
 ```golang
 import "github.com/penndev/gopkg/qqwry"
