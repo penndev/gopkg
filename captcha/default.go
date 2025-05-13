@@ -60,9 +60,9 @@ func NewImg() (*VerifyData, error) {
 }
 
 func Verify(id, code string) bool {
+	Store.Delete(id)
 	if val, ok := Store.Load(id); ok {
 		if storeCode, ok := val.(string); ok {
-			Store.Delete(id)
 			return strings.EqualFold(code, storeCode)
 		}
 	}
