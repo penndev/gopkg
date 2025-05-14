@@ -25,7 +25,9 @@ func GenerateSecret() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to generate random key: %v", err)
 	}
-	return base32.StdEncoding.EncodeToString(key), nil
+	secret := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(key)
+	secret = secret[:DefaultSecretLength]
+	return secret, nil
 }
 
 // GenerateOTP 生成基于时间的一次性密码

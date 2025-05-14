@@ -1,24 +1,25 @@
 package otp_test
 
 import (
-	"testing"
+	"fmt"
+	"time"
 
 	"github.com/penndev/gopkg/otp"
 )
 
-func TestGenerateOTPSecret(t *testing.T) {
+func ExampleGenerateOTPSecret() {
 	s, _ := otp.GenerateSecret()
-	if len(s) != 16 {
-		t.Logf("%s", s)
-	}
+	fmt.Println(s)
+	u := otp.GenerateOTPURI("totp", "gopkg", "test", s)
+	fmt.Println(u)
+	// Output:
+	// RQ3Z3PE56KYBK2ND
+	// otpauth://totp/gopkg:test?secret=RQ3Z3PE56KYBK2ND&issuer=gopkg&algorithm=SHA1&digits=6&period=30
 }
 
-func ExampleGenerateOTPSecret() {
-	// s := otp.GenerateOTPSecret()
-	// fmt.Println(s)
-	// LR3PUVPAWSWYGVFX
-	// ditigs, _ := otp.GenerateOTPWithTime("LR3PUVPAWSWYGVFX", time.Now())
-	// fmt.Println(ditigs)
+func ExampleGenerateOTPWithTime() {
+	code, _ := otp.GenerateOTPWithTime("RQ3Z3PE56KYBK2ND", time.Now())
+	fmt.Println(code)
 	// Output:
-	// 123456
+	// 767240
 }
