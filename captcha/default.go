@@ -60,9 +60,10 @@ func NewImg() (*VerifyData, error) {
 }
 
 func Verify(id, code string) bool {
-	Store.Delete(id)
 	if val, ok := Store.Load(id); ok {
 		if storeCode, ok := val.(string); ok {
+			// 只要进行验证过，则删除。防止碰撞攻击。
+			Store.Delete(id)
 			return strings.EqualFold(code, storeCode)
 		}
 	}
