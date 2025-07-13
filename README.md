@@ -76,9 +76,9 @@ buf, err := captcha.NewPngImg(captcha.Option{
 import "github.com/penndev/gopkg/ttlmap"
 ...
 // 创建了一个5分钟后会自动删除的sync.Map
-// 生存周期最小为1秒低于1秒会被重置为1秒
-// 基于协程时间轮实现
-syncMap := ttlmap.New(5 * time.Minute)
+tm := ttlmap.New()
+tm.Set("gopkg", "message", 5*time.Secound)
+tm.Get("gopkg")
 ```
 
 ## IP地址库qqwry

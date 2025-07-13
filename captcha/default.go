@@ -34,9 +34,7 @@ var StoreAlive = 5 * time.Minute
 // 快速生成响应，只适用于单机开发
 // 生成图片验证码
 func NewImg() (*VerifyData, error) {
-	if Store.GetDelay() < time.Second {
-		Store = *ttlmap.New(StoreAlive)
-	}
+	Store = *ttlmap.New()
 	option := Option{
 		Width:     120,
 		Height:    30,
@@ -51,7 +49,7 @@ func NewImg() (*VerifyData, error) {
 	}
 	data := base64.StdEncoding.EncodeToString(buf.Bytes())
 	id := uuid.New().String()
-	Store.Set(id, option.Text)
+	Store.Set(id, option.Text, StoreAlive)
 	result := VerifyData{
 		ID:        id,
 		PngBase64: "data:image/png;base64," + data,
