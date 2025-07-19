@@ -5,11 +5,21 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/tagphi/czdb-search-golang/pkg/db"
 
 	"github.com/lionsoul2014/ip2region/maker/golang/xdb"
 )
+
+func genString(s string) string {
+	// 格式纯真IP中的字符问题
+	s = strings.ReplaceAll(s, "\u2013", "-") //中文
+	s = strings.ReplaceAll(s, "\u0009", " ") //制表符
+	s = strings.ReplaceAll(s, "\u3000", " ") //全角空格
+	fields := strings.Fields(s)              // 清理多个空格
+	return strings.Join(fields, " ")
+}
 
 func genGEOTXT(czdb, czdbKey, put string) {
 	dbSearcher, err := db.InitDBSearcher(czdb, czdbKey, db.MEMORY)
@@ -21,14 +31,14 @@ func genGEOTXT(czdb, czdbKey, put string) {
 
 	// 需要激活下数据到内存
 	db.TreeSearch(dbSearcher, "0.0.0.1", true)
-
-	f, err := os.OpenFile("geolist.txt", os.O_CREATE|os.O_WRONLY, 0644)
+	os.Remove(put)
+	f, err := os.OpenFile(put, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		panic(err)
 	}
 	defer f.Close()
 
-	f.WriteString(fmt.Sprintf("%s|%s|%s\n", "0.0.0.0", "0.0.0.0", "IANA	保留地址"))
+	f.WriteString(fmt.Sprintf("%s|%s|%s\n", "0.0.0.0", "0.0.0.0", "IANA 保留地址"))
 
 	var cEndNumber uint32 = 0
 	// fmt.Printf("顶级节点长度-> %d \n", dbSearcher.BtreeModeParam.HeaderLength)
@@ -58,12 +68,22 @@ func genGEOTXT(czdb, czdbKey, put string) {
 				fmt.Printf("ip段缺省 %s|%s|%s\n", net.IP(startIP).String(), net.IP(endIP).String(), geoData)
 				os.Exit(1)
 			}
-
 			cEndNumber = binary.BigEndian.Uint32(endIP)
-			f.WriteString(fmt.Sprintf("%s|%s|%s\n", net.IP(startIP).String(), net.IP(endIP).String(), geoData))
+
+			// if bytes.Equal(endIP, []byte{219, 159, 88, 101}) {
+			// 	fmt.Printf("ip段缺省 %s|%s|%s\n", net.IP(startIP).String(), net.IP(endIP).String(), geoData)
+			// 	log.Println(geoData, genString(geoData))
+			// 	os.Exit(1)
+			// }
+			// if bytes.Equal(startIP, []byte{219, 159, 88, 101}) {
+			// 	fmt.Printf("ip段缺省 %s|%s|%s\n", net.IP(startIP).String(), net.IP(endIP).String(), geoData)
+			// 	log.Println(geoData, genString(geoData))
+			// 	os.Exit(1)
+			// }
+			f.WriteString(fmt.Sprintf("%s|%s|%s\n", net.IP(startIP).String(), net.IP(endIP).String(), genString(geoData)))
 		}
 	}
-	f.WriteString(fmt.Sprintf("%s|%s|%s\n", "255.255.255.0", "255.255.255.0", "IANA	保留地址"))
+	f.WriteString(fmt.Sprintf("%s|%s|%s\n", "255.255.255.0", "255.255.255.0", "IANA 保留地址"))
 
 }
 
