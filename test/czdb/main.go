@@ -2,15 +2,53 @@ package main
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strings"
 
-	"github.com/tagphi/czdb-search-golang/pkg/db"
-
 	"github.com/lionsoul2014/ip2region/maker/golang/xdb"
+	"github.com/penndev/gopkg/ip2region"
+	"github.com/tagphi/czdb-search-golang/pkg/db"
 )
+
+type Region struct {
+	Name     string   `json:"name"`
+	Children []Region `json:"children,omitempty"`
+}
+
+var result []Region
+
+func genRegion(region ip2region.IPRegion) {
+	if region.Country == "" {
+		return
+	}
+
+	findOrCreate := func(list *[]Region, name string) *Region {
+		if name == "" {
+			return &Region{}
+		}
+		for i := range *list {
+			if (*list)[i].Name == name {
+				return &(*list)[i]
+			}
+		}
+		newRegion := Region{Name: name}
+		*list = append(*list, newRegion)
+		return &(*list)[len(*list)-1]
+	}
+
+	// 查找或创建 Country
+	country := findOrCreate(&result, region.Country)
+	// 查找或创建 Province
+	province := findOrCreate(&country.Children, region.Province)
+	// 查找或创建 City
+	city := findOrCreate(&province.Children, region.City)
+	// 查找或创建 County
+	findOrCreate(&city.Children, region.County)
+}
 
 func genString(s string) string {
 	// 格式纯真IP中的字符问题
@@ -38,8 +76,9 @@ func genGEOTXT(czdb, czdbKey, put string) {
 	}
 	defer f.Close()
 
-	f.WriteString(fmt.Sprintf("%s|%s|%s\n", "0.0.0.0", "0.0.0.0", "IANA 保留地址"))
+	//
 
+	f.WriteString(fmt.Sprintf("%s|%s|%s\n", "0.0.0.0", "0.0.0.0", "IANA 保留地址"))
 	var cEndNumber uint32 = 0
 	// fmt.Printf("顶级节点长度-> %d \n", dbSearcher.BtreeModeParam.HeaderLength)
 	for index := 1; index < dbSearcher.BtreeModeParam.HeaderLength; index++ {
@@ -80,6 +119,8 @@ func genGEOTXT(czdb, czdbKey, put string) {
 			// 	log.Println(geoData, genString(geoData))
 			// 	os.Exit(1)
 			// }
+
+			genRegion(ip2region.NewIPRegion(genString(geoData)))
 			f.WriteString(fmt.Sprintf("%s|%s|%s\n", net.IP(startIP).String(), net.IP(endIP).String(), genString(geoData)))
 		}
 	}
@@ -120,4 +161,15 @@ func main() {
 	// https://ip2region.net/
 	// 将文件列表的getlist.txt 编译为xdb数据
 	genXdbFromGeoTxt("geolist.txt", "czdb.xdb")
+
+	//
+	file, err := os.Create("region.json")
+	if err != nil {
+		log.Panic(err)
+	}
+	defer file.Close()
+	// 编码为带缩进的 JSON 并写入文件
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ") // 美化输出
+	encoder.Encode(result)
 }

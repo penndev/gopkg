@@ -3,6 +3,7 @@ package ttlmap
 import (
 	"container/heap"
 	"context"
+	"log"
 	"sync"
 	"time"
 )
@@ -42,8 +43,12 @@ type TTLMap struct {
 // 设置键值和 TTL
 func (m *TTLMap) Set(key string, value any, ttl time.Duration) {
 	expireAt := time.Now().Add(ttl)
-	m.Store(key, item{value, expireAt})
-
+	if ttl <= 0 { // 持久化存储
+		m.Store(key, item{value, time.Time{}})
+		return
+	} else {
+		m.Store(key, item{value, expireAt})
+	}
 	m.heapCond.L.Lock()
 	heap.Push(&m.heap, ttlEntry{key, expireAt})
 	m.heapCond.L.Unlock()
@@ -55,8 +60,11 @@ func (m *TTLMap) Get(key string) (any, bool) {
 	if !ok {
 		return nil, false
 	}
-
 	it := v.(item)
+	if it.expireAt.IsZero() {
+		log.Println("长久存储g")
+		return it.value, true
+	}
 	if time.Now().After(it.expireAt) {
 		m.Delete(key)
 		return nil, false

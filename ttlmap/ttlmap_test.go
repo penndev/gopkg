@@ -9,9 +9,12 @@ import (
 
 func TestNew(t *testing.T) {
 	tm := ttlmap.New()
-	tm.Set("penn", "penndev", 2*time.Second)
+	tm.Set("penn", "penndev", 3*time.Second)
 	t.Log(tm.Get("penn"))
 	time.Sleep(2 * time.Second)
 	t.Log(tm.Load("penn"))
-
+	t.Log("-------------------------------------")
+	tm.Set("penn0", "penndev", 0)
+	t.Log(tm.Get("penn0"))
+	t.Fail()
 }

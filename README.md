@@ -5,11 +5,9 @@
 - [验证码](#验证码)
 - [TTLSyncMap](#TTLSyncMap) 简单的模拟redis带ttl的缓存管理map
 - IP地址库
-	- ~~[qqwry](#qqwry) 纯真IP数据库(cz88.net)已停止更新~~
+	- ~~[qqwry](#qqwry) 纯真IP数据库dat格式已停止更新~~
 	- [ip2region](#ip2region) xdb的数据格式，数据来源为最新的纯真IP czdb文件解析
-- [OTP两步校验](#OTP两步校验) 两步验证器（谷歌验证器等库）
-
-
+- [OTP两步校验](#OTP两步校验) 两步验证器（谷歌验证器）等库
 
 
 ## 验证码 
@@ -118,8 +116,8 @@ ip2region.Find("223.5.5.5")
 ```golang
 import "github.com/penndev/gopkg/otp"
 ...
-s, _ := otp.GenerateSecret()
+s, err := otp.GenerateSecret()
 uri := otp.GenerateOTPURI("totp", "gopkg", "test", s)
 // 客户端使用uri生成单次密码
-code, _ := otp.GenerateOTPWithTime(s, time.Now())
+code, err := otp.GenerateOTPWithTime(s, time.Now())
 ```
