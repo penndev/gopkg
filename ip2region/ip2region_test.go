@@ -13,7 +13,7 @@ func ExampleFind() {
 }
 
 func ExampleRegion() {
-	fmt.Println(ip2region.Region)
+	fmt.Println(ip2region.RegionList)
 	// Output:
 	// []
 }

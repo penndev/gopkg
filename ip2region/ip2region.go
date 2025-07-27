@@ -12,17 +12,15 @@ import (
 //go:embed czdb.xdb
 var defaultXDBData []byte
 
-var searcher *xdb.Searcher
-
 //go:embed region.json
 var defaultRegion []byte
 
-type region struct {
+type Region struct {
 	Name     string   `json:"name"`
-	Children []region `json:"children,omitempty"`
+	Children []Region `json:"children,omitempty"`
 }
 
-var Region []region
+var RegionList []Region
 
 func init() {
 	var err error
@@ -30,7 +28,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = json.Unmarshal(defaultRegion, &Region)
+	err = json.Unmarshal(defaultRegion, &RegionList)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -65,6 +63,8 @@ func NewIPRegion(s string) IPRegion {
 		ISP:      strings.Join(parts[1:], " "),
 	}
 }
+
+var searcher *xdb.Searcher
 
 func Find(ip string) IPRegion {
 	// 加载数据库文件
