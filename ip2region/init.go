@@ -1,10 +1,7 @@
 package ip2region
 
 import (
-<<<<<<< HEAD
 	_ "embed"
-=======
->>>>>>> 2810e561a7dce165b7b6ef3bfbda8b3053d3e911
 	"encoding/json"
 	"log"
 
