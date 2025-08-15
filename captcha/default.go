@@ -27,7 +27,7 @@ func RandText(strlen int) string {
 }
 
 // 默认的单机存储ttlmap,主要是为了单机开发适配。
-var Store ttlmap.TTLMap
+var Store ttlmap.Map
 
 var StoreAlive = 5 * time.Minute
 

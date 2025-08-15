@@ -3,7 +3,7 @@
 > 这是一个实用的 Go 工具库集合，专注于提供简单、轻量且易用的功能组件。我们在开发过程中，经常会遇到一些常用功能需求，比如验证码生成、缓存管理等。虽然已有不少开源库可供选择，但它们往往过于复杂或依赖繁重。因此我们开发了这个工具库，旨在提供更加简洁和实用的解决方案。
 
 - [验证码](#验证码)
-- [TTLSyncMap](#TTLSyncMap) 简单的模拟redis带ttl的缓存管理map
+- [TTLMap](#TTLMap) 简单的模拟redis带ttl的缓存管理map
 - IP地址库
 	- ~~[qqwry](#qqwry) 纯真IP数据库dat格式已停止更新~~
 	- [ip2region](#ip2region) xdb的数据格式，数据来源为最新的纯真IP czdb文件解析
@@ -78,15 +78,16 @@ buf, err := captcha.NewPngImg(captcha.Option{
 
 ```
 
-## TTLSyncMap
+## TTLMap
 >ttlmap (sync.Map) 简单的内存ttl sync.Map封装，使用go程进行后台时间轮管理。
 
 ```golang
 import "github.com/penndev/gopkg/ttlmap"
 ...
 // 创建了一个5分钟后会自动删除的sync.Map
+// 如果时间低于0则默认存储24小时，永久存储为24小时。
 tm := ttlmap.New()
-tm.Set("gopkg", "message", 5*time.Secound)
+tm.Set("gopkg", "message", 5*time.Seconds)
 tm.Get("gopkg")
 ```
 
