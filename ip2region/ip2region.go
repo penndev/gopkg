@@ -2,39 +2,9 @@ package ip2region
 
 import (
 	_ "embed"
-	"encoding/json"
 	"log"
 	"strings"
-
-	"github.com/penndev/gopkg/ip2region/xdb"
 )
-
-//go:embed czdb.xdb
-var defaultXDBData []byte
-
-var searcher *xdb.Searcher
-
-//go:embed region.json
-var defaultRegion []byte
-
-type region struct {
-	Name     string   `json:"name"`
-	Children []region `json:"children,omitempty"`
-}
-
-var Region []region
-
-func init() {
-	var err error
-	searcher, err = xdb.NewWithBuffer(defaultXDBData)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = json.Unmarshal(defaultRegion, &Region)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
 
 type IPRegion struct {
 	Country  string
