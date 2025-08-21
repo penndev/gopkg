@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
+	"log"
 
 	"golang.org/x/crypto/acme"
 )
@@ -25,6 +26,7 @@ type ChallengeTask struct {
 	Token     string          // 验证令牌
 	KeyAuth   string          // 验证密钥
 	Domain    string          // 域名
+	Wildcard  bool            // 是否为通配符域名
 	Status    bool            // 验证状态
 	challenge *acme.Challenge // ACME 挑战信息
 	authURI   string          // 授权 URI
@@ -79,6 +81,9 @@ func (auth *Auth) AuthorizeOrder() ([]ChallengeTask, error) {
 	tasks := make([]ChallengeTask, 0)
 	for _, authzURL := range auth.order.AuthzURLs {
 		authz, _ := auth.client.GetAuthorization(auth.Ctx, authzURL)
+
+		log.Println(authz)
+
 		for _, ch := range authz.Challenges {
 			switch ch.Type {
 			case "http-01":
@@ -105,6 +110,7 @@ func (auth *Auth) AuthorizeOrder() ([]ChallengeTask, error) {
 					Token:     ch.Token,
 					KeyAuth:   keyAuth,
 					Domain:    authz.Identifier.Value,
+					Wildcard:  authz.Wildcard,
 					challenge: ch,
 					authURI:   authz.URI,
 				})
@@ -134,14 +140,15 @@ func (auth *Auth) CreateOrderCert(tasks []ChallengeTask) (Certificate, error) {
 			if _, err := auth.client.WaitAuthorization(auth.Ctx, task.authURI); err != nil {
 				return Certificate{}, err
 			}
-			domain = append(domain, task.Domain)
+			if task.Wildcard {
+				domain = append(domain, "*."+task.Domain)
+			} else {
+				domain = append(domain, task.Domain)
+			}
 		}
 	}
-
-	// 生成域名私钥
-	domainKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	// 生成 CSR
-	csrDER, _ := x509.CreateCertificateRequest(
+	domainKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader) // 生成域名私钥
+	csrDER, _ := x509.CreateCertificateRequest(                     // 生成 CSR
 		rand.Reader,
 		&x509.CertificateRequest{DNSNames: domain},
 		domainKey,

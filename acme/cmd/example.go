@@ -10,9 +10,10 @@ import (
 	"github.com/penndev/gopkg/acme"
 )
 
+// go run acme/cmd/example.go
 func main() {
 	auth := &acme.Auth{
-		Domain: []string{"1.example.com", "2.example.com"},
+		Domain: []string{"example.com", "*.example.com"},
 		Email:  "your@email.com",
 	}
 	tasks, err := auth.AuthorizeOrder()
@@ -26,7 +27,7 @@ func main() {
 			fmt.Printf("HTTP TXT: http://%s/.well-known/acme-challenge/%s\n", task.Domain, task.Token)
 			fmt.Printf("Resp: %s\n", task.KeyAuth)
 		case acme.ChallengeDNS01:
-			fmt.Printf("DNS Record: _acme-challenge.%s IN TXT %s\n", task.Domain, task.KeyAuth)
+			fmt.Printf("DNS Record:(通配符 %t) _acme-challenge.%s IN TXT %s\n", task.Wildcard, task.Domain, task.KeyAuth)
 		}
 
 		reader := bufio.NewReader(os.Stdin)
