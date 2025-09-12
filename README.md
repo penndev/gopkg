@@ -60,7 +60,7 @@ func Check(c *gin.Context) {
 
 ```
 
-**图片模式** 
+**高级模式** 
 
 > 根据自定义内容生成图片自定义验证流程。一个字符设置为30的宽度为建议的值
 
@@ -77,6 +77,8 @@ buf, err := captcha.NewPngImg(captcha.Option{
 })
 
 ```
+
+## 滑动手势验证码
 
 ## TTLMap
 >ttlmap (sync.Map) 简单的内存ttl sync.Map封装，使用go程进行后台时间轮管理。
