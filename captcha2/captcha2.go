@@ -10,6 +10,9 @@ type Image struct {
 	Height int
 	Width  int
 	Image  *image.RGBA
+	PieceX int
+	PieceY int
+	Piece  *image.RGBA
 }
 
 func (i *Image) SetImage() {
@@ -33,4 +36,23 @@ func (i *Image) SetImage() {
 		img.SetRGBA(x, y, c)
 	}
 	i.Image = img
+}
+
+func (i *Image) SetPiece() {
+	size := i.Height / 4
+	rx := rand.Intn(i.Width - size)
+	ry := rand.Intn(i.Height - size)
+
+	i.PieceX = rx
+	i.PieceY = ry
+	i.Piece = image.NewRGBA(image.Rect(0, 0, size, size))
+
+	for y := ry; y < ry+size; y++ {
+		for x := rx; x < rx+size; x++ {
+			rgb := i.Image.RGBAAt(x, y)
+			i.Piece.SetRGBA(x-rx, y-ry, rgb)
+			rgb.A = 64
+			i.Image.SetRGBA(x, y, rgb)
+		}
+	}
 }
