@@ -26,7 +26,7 @@ type Option struct {
 }
 
 func NewPngImg(option Option) (*bytes.Buffer, error) {
-	img := textimg{
+	img := textImage{
 		rgba:   image.NewRGBA(image.Rect(0, 0, option.Width, option.Height)),
 		Option: option,
 	}

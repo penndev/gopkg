@@ -127,9 +127,4 @@ code, err := otp.GenerateOTPWithTime(s, time.Now())
 
 ## ACME证书自动申请
 
-> 参考 `acme/cmd/example.go` 查看使用实例
-
-```bash
-go run acme/cmd/example.go 
-# 按照提示来制作证书，或者作为库参考代码的使用
-```
+> 参考 `test/acme/example.go` 查看使用实例

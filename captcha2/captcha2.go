@@ -6,17 +6,24 @@ import (
 	"math/rand"
 )
 
-type Image struct {
-	Height int
+type Option struct {
 	Width  int
-	Image  *image.RGBA
-	PieceX int
-	PieceY int
-	Piece  *image.RGBA
+	Height int
 }
 
-func (i *Image) SetImage() {
-	h, w := i.Height, i.Width
+type NewDragImg struct {
+	Image       *image.RGBA
+	ImageHeight int
+	ImageWidth  int
+	PieceX      int // 定位相对x
+	PieceY      int // 定位相对y
+	Piece       *image.RGBA
+	PieceWidth  int
+	PieceHeight int
+}
+
+func (i *NewDragImg) SetImage() {
+	h, w := i.ImageHeight, i.ImageWidth
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 	// base gradient
 	for y := range h {
@@ -38,10 +45,18 @@ func (i *Image) SetImage() {
 	i.Image = img
 }
 
-func (i *Image) SetPiece() {
-	size := i.Height / 4
-	rx := rand.Intn(i.Width - size)
-	ry := rand.Intn(i.Height - size)
+func (i *NewDragImg) SetPiece() {
+	size := i.ImageHeight / 4
+	i.PieceWidth = size
+	i.PieceHeight = size
+	rx := rand.Intn(i.ImageWidth - size)
+	if rx < size {
+		rx += size
+	}
+	ry := rand.Intn(i.ImageHeight - size)
+	if ry < size {
+		ry += size
+	}
 
 	i.PieceX = rx
 	i.PieceY = ry
@@ -55,4 +70,9 @@ func (i *Image) SetPiece() {
 			i.Image.SetRGBA(x, y, rgb)
 		}
 	}
+}
+
+func (i *NewDragImg) DragDraw() {
+	i.SetImage()
+	i.SetPiece()
 }

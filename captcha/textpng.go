@@ -8,12 +8,12 @@ import (
 	"github.com/golang/freetype"
 )
 
-type textimg struct {
+type textImage struct {
 	Option
 	rgba *image.RGBA
 }
 
-func (img *textimg) drawFont() {
+func (img *textImage) drawFont() {
 	fc := freetype.NewContext()
 	fc.SetFont(DefaultFont)
 	fc.SetClip(img.rgba.Bounds())
@@ -34,7 +34,7 @@ func (img *textimg) drawFont() {
 	}
 }
 
-func (img *textimg) sin() {
+func (img *textImage) sin() {
 	newimg := image.NewRGBA(image.Rect(0, 0, img.Width, img.Height))
 	mixedx := math.Pi * (rand.Float64()*0.06 + 0.01) // 偏移量
 	mixedz := rand.Float64()*3 + 2                   //变换量
@@ -48,7 +48,7 @@ func (img *textimg) sin() {
 	img.rgba = newimg
 }
 
-func (img *textimg) curve() {
+func (img *textImage) curve() {
 	y := rand.Intn(img.Height/2) + img.Height/3
 	yr := (rand.Float64() * 2)
 	for x := 0; x < img.Width; x++ {
@@ -57,14 +57,14 @@ func (img *textimg) curve() {
 	}
 }
 
-func (img *textimg) circle() {
+func (img *textImage) circle() {
 	size := int(img.FontSize / 6)
 	total := img.Width * img.Height / 180
-	for i := 0; i < total; i++ {
+	for range total {
 		r := rand.Intn(size) + 1
 		x := rand.Intn(img.Width)
 		y := rand.Intn(img.Height)
-		for i := 0; i < r; i++ {
+		for i := range r {
 			img.rgba.Set(x+i, y, img.TextColor)
 			img.rgba.Set(x-i, y, img.TextColor)
 			img.rgba.Set(x, y+i, img.TextColor)

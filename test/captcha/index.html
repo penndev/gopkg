@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>验证码测试</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f9f9f9;
+            font-family: Arial, sans-serif;
+            flex-direction: column;
+        }
+
+        #captchaContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #captchaImage {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        #captchaPiece {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: grab;
+            box-shadow: rgba(0, 0, 0, 0.6) 0px 0px 6px;
+            background-size: cover;
+            background-position: center;
+        }
+
+        #captchaTip {
+            color: #333;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        #captchaText {
+            font-size: 12px;
+            color: #666;
+        }
+
+        #captchaSubmit {
+            border: none;
+            border-radius: 4px;
+            padding: 4px 12px;
+            background: linear-gradient(135deg, #0072ff, #00c6ff);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #captchaSubmit:hover {
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+
+</head>
+
+<body>
+    <div id="captchaContainer">
+        <div id="captchaImage">
+            <div id="captchaPiece"></div>
+        </div>
+        <div id="captchaTip">拖动拼图到缺口完成验证</div>
+        <div id="captchaText">X: 0, Y: 0</div>
+        <div>
+            <button id="captchaSubmit">提交验证</button>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById("captchaContainer");
+        const captchaImage = container.querySelector("#captchaImage");
+        const captchaPiece = container.querySelector("#captchaPiece");
+        const captchaText = container.querySelector("#captchaText");
+
+        let dragging = false;
+        let offsetX = 0, offsetY = 0;
+
+        // ---- 封装事件处理 ----
+        function startDrag(e) {
+            dragging = true;
+            const point = e.touches ? e.touches[0] : e;
+            const rect = captchaPiece.getBoundingClientRect();
+            offsetX = point.clientX - rect.left;
+            offsetY = point.clientY - rect.top;
+        }
+
+        function moveDrag(e) {
+            if (!dragging) return;
+            const point = e.touches ? e.touches[0] : e;
+            const rect = captchaImage.getBoundingClientRect();
+
+            let x = point.clientX - rect.left - offsetX;
+            let y = point.clientY - rect.top - offsetY;
+
+            formX = x = Math.ceil(Math.max(0, Math.min(rect.width - captchaPiece.offsetWidth, x)));
+            formY = y = Math.ceil(Math.max(0, Math.min(rect.height - captchaPiece.offsetHeight, y)));
+
+            captchaPiece.style.left = x + "px";
+            captchaPiece.style.top = y + "px";
+
+            captchaText.textContent = `X: ${x}, Y: ${y}`;
+        }
+
+        function endDrag() {
+            dragging = false;
+        }
+
+        // ---- 绑定事件 ----
+        captchaPiece.addEventListener("mousedown", startDrag);
+        document.addEventListener("mousemove", moveDrag);
+        document.addEventListener("mouseup", endDrag);
+
+        captchaPiece.addEventListener("touchstart", startDrag, { passive: false });
+        document.addEventListener("touchmove", moveDrag, { passive: false });
+        document.addEventListener("touchend", endDrag);
+
+        // ---- 加载数据 ----
+        formId = ""
+        formX = formY = 0
+        fetch("/captcha2")
+            .then(res => res.json())
+            .then(body => {
+                formId = body.ID;
+                captchaImage.style.backgroundImage = `url('${body.ImageBase64}')`;
+                captchaImage.style.width = body.ImageWidth + 'px';
+                captchaImage.style.height = body.ImageHeight + 'px';
+
+                captchaPiece.style.backgroundImage = `url('${body.PieceBase64}')`;
+                captchaPiece.style.width = body.PieceWidth + 'px';
+                captchaPiece.style.height = body.PieceHeight + 'px';
+            });
+
+        function captchaSubmit() {
+            // 这里可以添加提交逻辑，例如验证位置是否正确
+            alert("提交验证码");
+        }
+
+    </script>
+</body>
+
+</html>

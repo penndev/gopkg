@@ -27,14 +27,13 @@ func RandText(strlen int) string {
 }
 
 // 默认的单机存储ttlmap,主要是为了单机开发适配。
-var Store ttlmap.Map
+var Store ttlmap.Map = *ttlmap.New()
 
 var StoreAlive = 5 * time.Minute
 
 // 快速生成响应，只适用于单机开发
 // 生成图片验证码
 func NewImg() (*VerifyData, error) {
-	Store = *ttlmap.New()
 	option := Option{
 		Width:     120,
 		Height:    30,
