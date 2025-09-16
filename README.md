@@ -89,7 +89,8 @@ buf, err := captcha.NewPngImg(captcha.Option{
 
 - 滑动验证码
 
-	![文字验证码](https://raw.githubusercontent.com/penndev/gopkg/refs/heads/main/docs/captcha2.png)
+	![滑动验证码](https://raw.githubusercontent.com/penndev/gopkg/refs/heads/main/docs/captcha2.png)
+	![滑动验证码缺口](https://raw.githubusercontent.com/penndev/gopkg/refs/heads/main/docs/captcha2-piece.png)
 
 
 
