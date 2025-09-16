@@ -18,7 +18,7 @@
 
 - 字符验证码样例
 
-	![文字验证码](https://github.com/penndev/gopkg/tree/main/docs/captcha.png)
+	![文字验证码](https://raw.githubusercontent.com/penndev/gopkg/refs/heads/main/docs/captcha.png)
 
 
 - 可以自定义字体库与文字内容
@@ -89,7 +89,7 @@ buf, err := captcha.NewPngImg(captcha.Option{
 
 - 滑动验证码
 
-	![文字验证码](https://github.com/penndev/gopkg/tree/main/docs/captcha2.png)
+	![文字验证码](https://raw.githubusercontent.com/penndev/gopkg/refs/heads/main/docs/captcha2.png)
 
 
 
