@@ -12,9 +12,16 @@
 
 ## 验证码 
 
-- captcha
+> 运行[示例效果](https://github.com/penndev/gopkg/blob/main/test/captcha/main.go)
 
-- 可以自定义字体库
+### 文字验证码
+
+- 字符验证码样例
+
+	![文字验证码](https://github.com/penndev/gopkg/tree/main/docs/captcha.png)
+
+
+- 可以自定义字体库与文字内容
 
 **生成的验证码，只要经过验证后，就必须失效。否则撞库攻击会让人机校验功能失效**
 
@@ -78,7 +85,13 @@ buf, err := captcha.NewPngImg(captcha.Option{
 
 ```
 
-## 滑动手势验证码
+### 滑动手势验证码
+
+- 滑动验证码
+
+	![文字验证码](https://github.com/penndev/gopkg/tree/main/docs/captcha2.png)
+
+
 
 ## TTLMap
 >ttlmap (sync.Map) 简单的内存ttl sync.Map封装，使用go程进行后台时间轮管理。
@@ -95,15 +108,6 @@ tm.Get("gopkg")
 
 ## IP地址库
 
-### qqwry
-> 纯真IP库数据qqwry.dat数据解析的golang实现 （官方在 2024 年 10 月份已停止维护，官方已无发布dat格式文件。）
-
-```golang
-import "github.com/penndev/gopkg/qqwry"
-...
-qqwry.Find("255.255.255.255")
-```
-
 ### ip2region
 
 ```golang
@@ -112,6 +116,15 @@ import "github.com/penndev/gopkg/ip2region"
 ip2region.Find("223.5.5.5")
 ```
 
+
+### qqwry
+> 纯真IP库数据qqwry.dat数据解析的golang实现 （官方在 2024 年 10 月份已停止维护，官方已无发布dat格式文件。）
+
+```golang
+import "github.com/penndev/gopkg/qqwry"
+...
+qqwry.Find("255.255.255.255")
+```
 
 ## OTP两步校验
 > rfc6238 的实现
