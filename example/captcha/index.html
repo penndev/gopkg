@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>验证码测试</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            max-width: 900px;
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .panel {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .panel-title {
+            color: #0072ff;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .input-field {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .feedback {
+            margin: 15px 0;
+            min-height: 20px;
+            font-size: 0.9rem;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #0072ff, #00c6ff);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        /* 文字验证码 */
+        .captcha-image {
+            width: 100%;
+            max-width: 280px;
+            height: 100px;
+            margin: 10px auto 20px;
+            background: #f0f0f0;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 0.9rem;
+            border: 1px solid #e0e0e0;
+        }
+        /* 拼图验证码 */
+        .puzzle-container {
+            width: 100%;
+            padding: 20px;
+            background: #f0f0f0;
+            border-radius: 6px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- 文字验证码 -->
+        <div class="panel">
+            <h2 class="panel-title">图文验证码</h2>
+            <div class="captcha-image"><img id="captchaTextImage" alt="图文验证码" style="margin-left:10px;" /></div>
+            <input type="text" class="input-field" placeholder="请输入验证码" id="captchaTextInput" />
+            <div class="feedback" id="captchaTextText">验证结果将显示在这里</div>
+            <button class="submit-btn" id="captchaTextSubmit">提交验证</button>
+            <script>
+                var formTextID = ""
+                var load = function () {
+                    fetch("/captcha").then(res => res.json()).then(body => {
+                        formTextID = body.ID;
+                        document.getElementById("captchaTextImage").src = body.PngBase64;
+                    });
+                }; load();
+                document.getElementById("captchaTextSubmit").onclick = function () {
+                    data = new FormData();
+                    data.append("id", formTextID);
+                    data.append("code", document.getElementById("captchaTextInput").value);
+                    fetch("/captcha", { method: "POST", body: data }).then(res => res.text()).then(body => {
+                        document.getElementById("captchaTextText").innerHTML = `<font color="red">` + body + `</font>`;
+                        load()
+                    });
+                }
+            </script>
+        </div>
+
+        <!-- 拼图验证码 -->
+        <div class="panel">
+            <h2 class="panel-title">拼图验证码</h2>
+            <div class="puzzle-container">
+                <div id="captcha2Image" style="position: relative;">
+                    <div id="captcha2Piece" style="position: absolute;"></div>
+                </div>
+            </div>
+            <p class="tip">拖动拼图到缺口完成验证</p>
+            <div class="feedback" id="captcha2Text">验证结果将显示在这里</div>
+            <button class="submit-btn" id="captcha2Submit">提交验证</button>
+            <script>
+                const captcha2Image = document.getElementById("captcha2Image");
+                const captcha2Piece = document.getElementById("captcha2Piece");
+                const captcha2Text = document.getElementById("captcha2Text");
+
+                let dragging = false, offsetX = 0, offsetY = 0;
+
+                // 拖拽时初始化
+                function startDrag(e) {
+                    dragging = true;
+                    const point = e.touches ? e.touches[0] : e;
+                    const rect = captcha2Piece.getBoundingClientRect();
+                    offsetX = point.clientX - rect.left;
+                    offsetY = point.clientY - rect.top;
+                }
+                // 拖拽时候移动视图
+                function moveDrag(e) {
+                    if (!dragging) return;
+                    const point = e.touches ? e.touches[0] : e;
+                    const rect = captcha2Image.getBoundingClientRect();
+                    let x = point.clientX - rect.left - offsetX; let y = point.clientY - rect.top - offsetY;
+                    formX = x = Math.ceil(Math.max(0, Math.min(rect.width - captcha2Piece.offsetWidth, x)));
+                    formY = y = Math.ceil(Math.max(0, Math.min(rect.height - captcha2Piece.offsetHeight, y)));
+                    captcha2Piece.style.left = x + "px";
+                    captcha2Piece.style.top = y + "px";
+                    captcha2Text.textContent = `X: ${x}, Y: ${y}`;
+                }
+                const endDrag = () => dragging = false
+
+                // ---- 绑定事件 ----
+                captcha2Piece.addEventListener("mousedown", startDrag);
+                document.addEventListener("mousemove", moveDrag);
+                document.addEventListener("mouseup", endDrag);
+                captcha2Piece.addEventListener("touchstart", startDrag, { passive: false });
+                document.addEventListener("touchmove", moveDrag, { passive: false });
+                document.addEventListener("touchend", endDrag);
+
+                // ---- 加载数据 ----
+                let formId, formX = formY = 0;
+                const load2 = function () {
+                    captcha2Piece.style.left = "0px";
+                    captcha2Piece.style.top = "0px";
+                    fetch("/captcha2").then(res => res.json())
+                        .then(body => {
+                            formId = body.ID;
+                            captcha2Image.style.backgroundImage = `url('${body.ImageBase64}')`;
+                            captcha2Image.style.width = body.ImageWidth + 'px';
+                            captcha2Image.style.height = body.ImageHeight + 'px';
+
+                            captcha2Piece.style.backgroundImage = `url('${body.PieceBase64}')`;
+                            captcha2Piece.style.width = body.PieceWidth + 'px';
+                            captcha2Piece.style.height = body.PieceHeight + 'px';
+                        });
+                }; load2();
+
+                document.getElementById("captcha2Submit").onclick = function () {
+                    data = new FormData();
+                    data.append("id", formId);
+                    data.append("x", formX);
+                    data.append("y", formY);
+                    fetch("/captcha2", { method: "POST", body: data }).then(res => res.text())
+                        .then(body => {
+                            captcha2Text.innerHTML = `<font color="red">` + body + `</font>`;
+                            load2();
+                        });
+                }
+            </script>
+        </div>
+
+    </div>
+</body>
+
+</html>

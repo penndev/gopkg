@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -68,5 +69,6 @@ func main() {
 			return
 		}
 	})
-	http.ListenAndServe(":8080", nil)
+	log.Println("open http://127.0.0.1:8080 in your browser")
+	http.ListenAndServe("127.0.0.1:8080", nil)
 }
