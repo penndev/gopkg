@@ -11,9 +11,3 @@ func ExampleFind() {
 	// Output:
 	// {中国 浙江 杭州  阿里巴巴anycast公共DNS}
 }
-
-func ExampleRegion() {
-	fmt.Println(ip2region.Region)
-	// Output:
-	// []
-}

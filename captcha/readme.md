@@ -1,6 +1,6 @@
-# 图文验证码
-
 ### 文字验证码
+
+<img src="https://github.com/user-attachments/assets/225ea543-f473-4a0e-961a-0cc44c858150" alt="example" width="500">
 
 **生成的验证码，只要经过验证后，就必须失效。否则撞库攻击会让人机校验功能失效**
 

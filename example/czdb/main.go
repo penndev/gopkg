@@ -150,6 +150,7 @@ func genXdbFromGeoTxt(srcFile, dstFile string) {
 	}
 }
 
+// 生成 czdb.xdb 和 region.json
 func main() {
 
 	// czdb生成xdb数据库文件
