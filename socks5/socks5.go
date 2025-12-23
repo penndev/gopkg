@@ -91,17 +91,47 @@ func (r *Requests) encodeAddr() ([]byte, error) {
 }
 
 func (r *Requests) Encode() ([]byte, error) {
-
 	buf := []byte{Version, byte(r.CMD), 0x00, byte(r.ATYP)}
-
 	bufAddr, err := r.encodeAddr()
 	if err != nil {
 		return nil, err
 	}
-
 	buf = append(buf, bufAddr...)
 	buf = append(buf, r.encodePort()...)
 	return buf, nil
+}
+
+func (r *Requests) decodeCMD(cmd byte) error {
+	switch CMD(cmd) {
+	case CMD_BIND:
+		r.CMD = CMD_BIND
+	case CMD_CONNECT:
+		r.CMD = CMD_CONNECT
+	case CMD_UDP_ASSOCIATE:
+		r.CMD = CMD_UDP_ASSOCIATE
+	default:
+		return errors.New("cmd error")
+	}
+	return nil
+}
+
+func (r *Requests) decodeATYP(atyp byte) error {
+	return nil
+}
+
+func (r *Requests) Decode(buf []byte) error {
+	if buf[0] != Version {
+		return errors.New("socks5 version error")
+	}
+	if err := r.decodeCMD(buf[1]); err != nil {
+		return err
+	}
+	if buf[2] != 0 {
+		return errors.New("RSV error")
+	}
+	if err := r.decodeATYP(buf[3]); err != nil {
+		return errors.New("ATYP error")
+	}
 }
 
 type Replies struct {
