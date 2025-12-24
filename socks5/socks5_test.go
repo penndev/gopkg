@@ -3,6 +3,7 @@ package socks5_test
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"testing"
 
 	"github.com/penndev/gopkg/socks5"
@@ -39,5 +40,14 @@ func TestRequests(t *testing.T) {
 	}
 
 	// 解码
+	req.Decode([]byte{5, 1, 0, 1, 192, 168, 1, 1, 0, 80})
+	log.Println(req)
 
+	req.Decode([]byte{5, 1, 0, 3, 11, 101, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109, 0, 80})
+	log.Println(req)
+
+	req.Decode([]byte{5, 1, 0, 4, 38, 6, 71, 0, 0, 0, 0, 0, 0, 0, 0, 0, 104, 18, 27, 120, 0, 80})
+	log.Println(req)
+
+	// t.Fail() 查看解码字节
 }

@@ -23,8 +23,8 @@ const Version = 0x05
 type METHOD byte
 
 const (
-	METHOD_NO_AUTH METHOD = 0x00
-	METHOD_USER    METHOD = 0x02
+	METHOD_NO_AUTH           METHOD = 0x00
+	METHOD_USERNAME_PASSWORD METHOD = 0x02
 )
 
 // o  CMD
@@ -52,148 +52,6 @@ const (
 	ATYP_DOMAIN ATYP = 0x03
 	ATYP_IPV6   ATYP = 0x04
 )
-
-type Requests struct {
-	CMD      CMD
-	ATYP     ATYP
-	DST_ADDR []byte
-	DST_PORT uint16
-}
-
-func (r *Requests) encodePort() []byte {
-	bufPort := make([]byte, 2)
-	binary.BigEndian.PutUint16(bufPort, r.DST_PORT)
-	return bufPort
-}
-
-func (r *Requests) encodeAddr() ([]byte, error) {
-	switch r.ATYP {
-	case ATYP_IPV4:
-		if len(r.DST_ADDR) != 4 {
-			return nil, errors.New("ATYP_IPV4 len not 4")
-		}
-		return r.DST_ADDR, nil
-	case ATYP_DOMAIN:
-		if len(r.DST_ADDR) < 1 && len(r.DST_ADDR) > 255 {
-			return nil, errors.New("ATYP_DOMAIN len error")
-		}
-		domainBuf := []byte{byte(len(r.DST_ADDR))}
-		domainBuf = append(domainBuf, r.DST_ADDR...)
-		return domainBuf, nil
-	case ATYP_IPV6:
-		if len(r.DST_ADDR) != 16 {
-			return nil, errors.New("ATYP_IPV6 len not 4")
-		}
-		return r.DST_ADDR, nil
-	default:
-		return nil, errors.New("ATYP error")
-	}
-}
-
-func (r *Requests) Encode() ([]byte, error) {
-	buf := []byte{Version, byte(r.CMD), 0x00, byte(r.ATYP)}
-	bufAddr, err := r.encodeAddr()
-	if err != nil {
-		return nil, err
-	}
-	buf = append(buf, bufAddr...)
-	buf = append(buf, r.encodePort()...)
-	return buf, nil
-}
-
-func (r *Requests) decodeCMD(cmd byte) error {
-	switch CMD(cmd) {
-	case CMD_BIND:
-		r.CMD = CMD_BIND
-	case CMD_CONNECT:
-		r.CMD = CMD_CONNECT
-	case CMD_UDP_ASSOCIATE:
-		r.CMD = CMD_UDP_ASSOCIATE
-	default:
-		return errors.New("cmd error")
-	}
-	return nil
-}
-
-func (r *Requests) decodeATYP(atyp byte) error {
-	return nil
-}
-
-func (r *Requests) Decode(buf []byte) error {
-	if buf[0] != Version {
-		return errors.New("socks5 version error")
-	}
-	if err := r.decodeCMD(buf[1]); err != nil {
-		return err
-	}
-	if buf[2] != 0 {
-		return errors.New("RSV error")
-	}
-	if err := r.decodeATYP(buf[3]); err != nil {
-		return errors.New("ATYP error")
-	}
-}
-
-type Replies struct {
-	// o  X'00' succeeded
-	// o  X'01' general SOCKS server failure
-	// o  X'02' connection not allowed by ruleset
-	// o  X'03' Network unreachable
-	// o  X'04' Host unreachable
-	// o  X'05' Connection refused
-	// o  X'06' TTL expired
-	// o  X'07' Command not supported
-	// o  X'08' Address type not supported
-	// o  X'09' to X'FF' unassigned
-	REP byte
-	//X'01'
-	// the address is a Version-4 IP address, with a length of 4 octets
-	//X'03'
-	// the address field contains a fully-qualified domain name.  The first
-	// octet of the address field contains the number of octets of name that
-	// follow, there is no terminating NUL octet.
-	//X'04'
-	//the address is a Version-6 IP address, with a length of 16 octets.
-	ATYP     byte
-	DST_ADDR string
-	DST_PORT uint16
-}
-
-func (r *Replies) Decode(buf []byte) error {
-	if len(buf) < 7 {
-		return errors.New("Replies Decode error byte")
-	}
-	if buf[0] != Version {
-		return fmt.Errorf("error version %d", buf[0])
-	}
-	r.REP = buf[1]
-	r.ATYP = buf[3]
-	portLen := 0
-	if r.ATYP == 0x01 {
-		if len(buf) != 10 {
-			return errors.New("Replies Decode 0x01 err")
-		}
-		r.DST_ADDR = net.IP(buf[4:8]).String()
-		portLen = 8
-	} else if r.ATYP == 0x03 {
-		addrLen := int(buf[4])
-		if len(buf) != (addrLen + 7) {
-			return errors.New("Replies Decode 0x03 err")
-		}
-		r.DST_ADDR = net.IP(buf[5 : 5+addrLen]).String()
-		portLen = 5 + addrLen
-	} else if r.ATYP == 0x04 {
-		if len(buf) != 22 {
-			return errors.New("Replies Decode 0x04 err")
-		}
-		r.DST_ADDR = net.IP(buf[4:21]).String()
-		portLen = 21
-	} else {
-		return fmt.Errorf("Replies Decode atyp error %d", r.ATYP)
-	}
-	r.DST_PORT = binary.BigEndian.Uint16([]byte{buf[portLen], buf[portLen+1]})
-	return nil
-}
 
 type UDPDatagram struct {
 	// RSV | FRAG |
