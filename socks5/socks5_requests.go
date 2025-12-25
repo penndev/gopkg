@@ -3,6 +3,8 @@ package socks5
 import (
 	"encoding/binary"
 	"errors"
+	"net"
+	"strconv"
 )
 
 type Requests struct {
@@ -10,6 +12,17 @@ type Requests struct {
 	ATYP     ATYP
 	DST_ADDR []byte
 	DST_PORT uint16
+}
+
+func (r *Requests) Addr() string {
+	var host string
+	switch r.ATYP {
+	case ATYP_IPV4, ATYP_IPV6:
+		host = net.IP(r.DST_ADDR).String()
+	case ATYP_DOMAIN:
+		host = string(r.DST_ADDR)
+	}
+	return net.JoinHostPort(host, strconv.Itoa(int(r.DST_PORT)))
 }
 
 func (r *Requests) Encode() ([]byte, error) {
@@ -66,7 +79,7 @@ func (r *Requests) Decode(buf []byte) error {
 		r.ATYP = ATYP_DOMAIN
 		domainLen := int(buf[4])
 		if len(buf) != (domainLen + 7) {
-			return errors.New("Replies Decode domain len err")
+			return errors.New("Requests Decode domain len err")
 		}
 		r.DST_ADDR = buf[5 : 5+domainLen]
 		r.DST_PORT = binary.BigEndian.Uint16(buf[5+domainLen : 7+domainLen])
