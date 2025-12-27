@@ -3,10 +3,61 @@ package socks5
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 )
+
+// UDP Read Write func
+type UDPClient struct {
+	net.Conn
+	ATYP     ATYP
+	DST_ADDR []byte
+	DST_PORT uint16
+}
+
+func (c *UDPClient) Read(b []byte) (int, error) {
+	buf := make([]byte, 1024)
+	n, err := c.Conn.Read(buf)
+	datagram := UDPDatagram{}
+	if err != nil {
+		return 0, err
+	}
+	err = datagram.Decode(buf[:n])
+	if err != nil {
+		return 0, err
+	}
+	bufLen := len(datagram.DATA)
+	if len(b) < bufLen {
+		return 0, fmt.Errorf("UDPClient Read buf si small[%d]", bufLen)
+	}
+	copy(b[:bufLen], datagram.DATA[:])
+	return bufLen, err
+}
+
+func (c *UDPClient) Write(data []byte) (int, error) {
+	datagram := UDPDatagram{
+		ATYP:     c.ATYP,
+		DST_ADDR: c.DST_ADDR,
+		DST_PORT: c.DST_PORT,
+		DATA:     data,
+	}
+	if d, err := datagram.Encode(); err == nil {
+		n, err := c.Conn.Write(d)
+		if err != nil {
+			return 0, err
+		}
+		if n != len(d) {
+			return 0, errors.New("write byte len error")
+		}
+		return len(data), nil
+	} else {
+		return 0, err
+	}
+}
+
+func (c *UDPClient) Close() error {
+	return c.Conn.Close()
+}
 
 // Socks5 Clint Conn
 type Conn struct {
@@ -22,11 +73,12 @@ type Conn struct {
 func (c *Conn) requests(network, address string) (Requests, error) {
 	req := Requests{}
 
-	if network == "tcp" {
+	switch network {
+	case "tcp":
 		req.CMD = CMD_CONNECT
-	} else if network == "udp" {
+	case "udp":
 		req.CMD = CMD_UDP_ASSOCIATE
-	} else {
+	default:
 		return req, errors.New("not support " + network)
 	}
 	host, port, err := net.SplitHostPort(address)
@@ -82,25 +134,12 @@ func (c *Conn) Dial(network, address string) (net.Conn, error) {
 	rep.Decode(buf[:n])
 	if rep.REP == 0x00 {
 		if req.CMD == CMD_UDP_ASSOCIATE {
-			UDPrw, err := net.Dial("udp", net.JoinHostPort(string(rep.BND_ADDR), strconv.Itoa(int(rep.BND_PORT))))
-			if err != nil {
-				return nil, err
-			}
-			host, strPort, err := net.SplitHostPort(address)
-			if err != nil {
-				return nil, err
-			}
-			intPort, err := strconv.Atoi(strPort)
-			if err != nil {
-				return nil, err
-			} else if intPort < 0 || intPort > 65535 {
-				return nil, errors.New("port error [" + strPort + "]")
-			}
-
+			UDPrw, err := net.Dial("udp", rep.Addr())
 			c.rwUDP = &UDPClient{
 				Conn:     UDPrw,
-				DST_ADDR: host,
-				DST_PORT: uint16(intPort),
+				ATYP:     req.ATYP,
+				DST_ADDR: req.DST_ADDR,
+				DST_PORT: req.DST_PORT,
 			}
 			return c.rwUDP, err
 		} else {
@@ -137,7 +176,6 @@ func NewClient(address, user, pass string) (*Conn, error) {
 		conn.Close()
 		return nil, errors.New("error socks5 service Version")
 	}
-	log.Println(buf)
 	switch METHOD(buf[1]) {
 	case METHOD_NO_AUTH:
 		return &Conn{rw: conn}, err

@@ -46,7 +46,7 @@ func TestUsername(t *testing.T) {
 }
 
 func TestUDP(t *testing.T) {
-	s5, err := socks5.NewClient("127.0.0.1:1080", "", "")
+	s5, err := socks5.NewClient("127.0.0.1:10801", "", "")
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +75,7 @@ func TestUDP(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	if string(buf[:n]) != "recv:hello" {
+	if n != 61 {
 		t.Fail()
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
 )
 
 // o  X'00' succeeded
@@ -102,4 +104,15 @@ func (r *Replies) Encode() ([]byte, error) {
 	binary.BigEndian.PutUint16(bufPort, r.BND_PORT)
 	buf = append(buf, bufPort...)
 	return buf, nil
+}
+
+func (r *Replies) Addr() string {
+	var host string
+	switch r.ATYP {
+	case ATYP_IPV4, ATYP_IPV6:
+		host = net.IP(r.BND_ADDR).String()
+	case ATYP_DOMAIN:
+		host = string(r.BND_ADDR)
+	}
+	return net.JoinHostPort(host, strconv.Itoa(int(r.BND_PORT)))
 }
