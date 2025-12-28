@@ -2,7 +2,6 @@ package socks5
 
 import (
 	"errors"
-	"io"
 	"log"
 	"net"
 	"slices"
@@ -55,7 +54,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 	buf := make([]byte, 263)
-	req := Requests{}
+	req := &Requests{}
 	if buflen, err := conn.Read(buf); err != nil {
 		log.Println(err)
 		return
@@ -72,8 +71,8 @@ func (s *Server) handleConn(conn net.Conn) {
 		s.handleConnect(conn, req)
 	// case CMD_BIND:
 	// 	// handle bind
-	// case CMD_UDP_ASSOCIATE:
-	// 	// handle udp associate
+	case CMD_UDP_ASSOCIATE:
+		s.handleUDPAssociate(conn, req)
 	default:
 		return
 	}
@@ -133,7 +132,7 @@ func (s *Server) authenticate(conn net.Conn) error {
 	return nil
 }
 
-func (s *Server) handleConnect(conn net.Conn, req Requests) error {
+func (s *Server) handleConnect(conn net.Conn, req *Requests) error {
 	addr := req.Addr()
 	log.Println("reqeust remote ->", addr)
 	remote, err := net.Dial("tcp", addr)
@@ -156,11 +155,7 @@ func (s *Server) handleConnect(conn net.Conn, req Requests) error {
 	return nil
 }
 
-func Pipe(src, dst net.Conn) {
-	go func() {
-		defer dst.Close()
-		io.Copy(dst, src)
-	}()
-	defer src.Close()
-	io.Copy(src, dst)
+func (s *Server) handleUDPAssociate(conn net.Conn, req *Requests) error {
+	log.Println("request udp associate")
+	return nil
 }
