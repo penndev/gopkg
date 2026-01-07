@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
+	"strconv"
 )
 
 type UDPDatagram struct {
@@ -12,6 +14,17 @@ type UDPDatagram struct {
 	DST_ADDR []byte
 	DST_PORT uint16
 	DATA     []byte
+}
+
+func (r *UDPDatagram) Addr() string {
+	var host string
+	switch r.ATYP {
+	case ATYP_IPV4, ATYP_IPV6:
+		host = net.IP(r.DST_ADDR).String()
+	case ATYP_DOMAIN:
+		host = string(r.DST_ADDR)
+	}
+	return net.JoinHostPort(host, strconv.Itoa(int(r.DST_PORT)))
 }
 
 func (r *UDPDatagram) Decode(buf []byte) error {
