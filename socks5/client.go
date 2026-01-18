@@ -77,7 +77,6 @@ func (c *Conn) Dial(network, address string) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	rep := Replies{}
 	rep.Decode(buf[:n])
 	if rep.REP == 0x00 {

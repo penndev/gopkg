@@ -28,7 +28,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	defer func() {
 		conn.Close()
 		if r := recover(); r != nil {
-			// log error
+			log.Println("panic recovered:", r)
 		}
 	}()
 	conn.SetDeadline(time.Now().Add(120 * time.Second))
@@ -52,11 +52,17 @@ func (s *Server) handleConn(conn net.Conn) {
 
 	switch req.CMD {
 	case CMD_CONNECT:
-		s.handleConnect(conn, req)
+		err := s.handleConnect(conn, req)
+		if err != nil {
+			log.Println("handleConnect err:", err)
+		}
 	// case CMD_BIND:
 	// 	// handle bind
 	case CMD_UDP_ASSOCIATE:
-		s.handleUDPAssociate(conn, req)
+		err := s.handleUDPAssociate(conn, req)
+		if err != nil {
+			log.Println("handleUDPAssociate err:", err)
+		}
 	default:
 		return
 	}

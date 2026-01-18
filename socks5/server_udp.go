@@ -3,7 +3,6 @@ package socks5
 import (
 	"log"
 	"net"
-	"time"
 )
 
 func (s *Server) UDPListen() error {
@@ -19,6 +18,10 @@ func (s *Server) UDPListen() error {
 	if err != nil {
 		return err
 	}
+
+	s.UDPSession = make(map[string]chan []byte)
+	s.UDPMatch = make(map[string]map[string]chan *net.UDPAddr)
+
 	// 数据部分：最大 65,535 - 20 (IP头) - 8 (UDP头) = 65,507 字节
 	buf := make([]byte, 65507)
 	for {
@@ -27,7 +30,33 @@ func (s *Server) UDPListen() error {
 			log.Println(err)
 			continue
 		}
-		s.UDPPipe(addr, buf[:n])
+		go s.UDPHandle(addr, buf[:n])
+		// log.Println("recv udp from", addr.String(), "len:", n)
+	}
+}
+
+func (s *Server) UDPHandle(addr *net.UDPAddr, buf []byte) {
+	log.Println("收到了udp信息", addr.String())
+	udpd := UDPDatagram{}
+	err := udpd.Decode(buf)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	// 存在session直接传递数据，不存在则开启阻塞匹配
+	if ch, exist := s.UDPSession[addr.String()]; exist {
+		ch <- buf
+	} else {
+		lhost, _, err := net.SplitHostPort(addr.String())
+		if err != nil {
+			panic(err)
+		}
+		if mch, exist := s.UDPMatch[lhost][udpd.Addr()]; exist {
+			s.UDPSession[addr.String()] = make(chan []byte, 10)
+			log.Println("开始写入udp信息", addr.String())
+			mch <- addr
+			s.UDPSession[addr.String()] <- udpd.DATA
+		}
 	}
 }
 
@@ -41,70 +70,59 @@ func (s *Server) handleUDPAssociate(conn net.Conn, req *Requests) error {
 	if err != nil {
 		return err
 	}
-	udpConn, err := net.DialUDP("udp", nil, raddr)
+	remoteConn, err := net.DialUDP("udp", nil, raddr)
 	if err != nil {
 		return err
 	}
-
+	defer remoteConn.Close()
 	rep := Replies{
 		REP:      REP_SUCCEEDED,
 		ATYP:     req.ATYP,
-		BND_ADDR: s.UDPAddr.IP,
+		BND_ADDR: s.UDPAddr.IP.To4(),
 		BND_PORT: uint16(s.UDPAddr.Port),
 	}
 	repBuf, err := rep.Encode()
 	if err != nil {
 		return err
 	}
-	conn.Write(repBuf)
 
-	s.UDPMatch[req.Addr()] = udpConn
-	buf := make([]byte, 1)
-	conn.Read(buf)
-	delete(s.UDPMatch, req.Addr())
-	return nil
-}
-
-func (s *Server) UDPPipe(addr *net.UDPAddr, buf []byte) {
-	udpd := UDPDatagram{}
-	err := udpd.Decode(buf)
+	lhost, _, err := net.SplitHostPort(conn.RemoteAddr().String())
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
-
-	// 查看 UDPConnMap是否绑定了 转发数据的方法
-	// 如果有了则直接转发数据
-	// 如果没有则绑定到待匹配的 UDPMatch
-	// 30秒没有匹配到则直接从 UDPMatch删除
-	f, exists := s.UDPConnMap[addr]
-	if exists {
-		f(buf)
-		return
-	} else {
-		time.Sleep(3 * time.Second)
-		bf, ok := s.UDPMatch[udpd.Addr()]
-		if ok {
-			s.UDPConnMap[addr] = func(b []byte) {
-				_, err := bf.Write(b)
-				if err != nil {
-					log.Println(err)
-				}
+	remoteAddr := remoteConn.RemoteAddr().String()
+	mch := make(chan *net.UDPAddr)
+	if _, exist := s.UDPMatch[lhost]; !exist {
+		s.UDPMatch[lhost] = make(map[string]chan *net.UDPAddr)
+	}
+	s.UDPMatch[lhost][remoteAddr] = mch
+	//准备好通道，再等待客户端，顺序很重要
+	conn.Write(repBuf)
+	log.Println("等待绑定udp信息")
+	localAddr := <-mch
+	log.Println("绑定了udp信息", localAddr.String())
+	lch := s.UDPSession[localAddr.String()]
+	go func() {
+		for {
+			buf := make([]byte, 65507)
+			n, _, err := remoteConn.ReadFromUDP(buf)
+			if err != nil {
+				log.Println("err001->", err)
+				return
 			}
-			go func() {
-				s.UDPConnMap[addr](buf)
-				for {
-					buf := make([]byte, 65507)
-					n, err := bf.Read(buf)
-					if err != nil {
-						log.Println(err)
-						return
-					}
-					udpd.DATA = buf[:n]
-					encBuf, err := udpd.Encode()
-					s.UDPConn.WriteToUDP(encBuf, addr)
-				}
-			}()
+			log.Println("远程写入本地", localAddr.String(), "->", buf[:n])
+			s.UDPConn.WriteToUDP(buf[:n], localAddr)
 		}
-	}
+	}()
+	go func() {
+		for {
+			buf := <-lch
+			log.Println("本地写入远程", remoteConn.RemoteAddr().String(), " ->", buf)
+			remoteConn.Write(buf)
+		}
+	}()
+	buf := make([]byte, 65507)
+	n, err := conn.Read(buf)
+	log.Println("进程结束", buf[:n])
+	return nil
 }

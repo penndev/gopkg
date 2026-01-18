@@ -9,10 +9,11 @@ type Server struct {
 	METHOD   METHOD
 
 	// UDP相关
-	UDPAddr    *net.UDPAddr
-	UDPConn    *net.UDPConn
-	UDPMatch   map[string]*net.UDPConn
-	UDPConnMap map[*net.UDPAddr]func([]byte)
+	UDPAddr *net.UDPAddr
+	UDPConn *net.UDPConn
+	// 给UDP获取从本地的隧道 map[客户端的IP地址]map[要连接的服务器IP:PORT]
+	UDPMatch   map[string]map[string]chan *net.UDPAddr
+	UDPSession map[string]chan []byte
 }
 
 func Listen(addr, username, password string) error {
