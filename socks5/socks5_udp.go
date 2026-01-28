@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 )
@@ -51,10 +50,9 @@ func (r *UDPDatagram) Decode(buf []byte) error {
 		if len(buf) < 22 {
 			return errors.New("UDPDatagram Decode 0x04 err")
 		}
-		r.DST_ADDR = buf[4:21]
-		portLen = 21
+		r.DST_ADDR = buf[4:20]
+		portLen = 20
 	default:
-		log.Println(buf)
 		return fmt.Errorf("UDPDatagram Decode atyp error %d", r.ATYP)
 	}
 	r.DST_PORT = binary.BigEndian.Uint16([]byte{buf[portLen], buf[portLen+1]})

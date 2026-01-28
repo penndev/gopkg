@@ -7,6 +7,8 @@ type Server struct {
 	Username string
 	Password string
 	METHOD   METHOD
+	// TCP
+	Listener net.Listener
 
 	// UDP相关
 	UDPAddr *net.UDPAddr
@@ -26,8 +28,25 @@ func Listen(addr, username, password string) error {
 	if username != "" {
 		s.METHOD = METHOD_USERNAME_PASSWORD
 	}
+	errc := make(chan error, 2)
 	go func() {
-		s.UDPListen()
+		errc <- s.UDPListen()
 	}()
-	return s.TCPListen()
+	go func() {
+		errc <- s.TCPListen()
+	}()
+	// wait for one to return, then close the other and return
+	err := <-errc
+	s.Close()
+	return err
+}
+
+// Close closes underlying listeners/conns to stop listen loops.
+func (s *Server) Close() {
+	if s.UDPConn != nil {
+		s.UDPConn.Close()
+	}
+	if s.Listener != nil {
+		s.Listener.Close()
+	}
 }

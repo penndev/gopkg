@@ -34,7 +34,7 @@ func (r *Requests) Encode() ([]byte, error) {
 		}
 		buf = append(buf, r.DST_ADDR...)
 	case ATYP_DOMAIN:
-		if len(r.DST_ADDR) < 1 && len(r.DST_ADDR) > 255 {
+		if len(r.DST_ADDR) < 1 || len(r.DST_ADDR) > 255 {
 			return nil, errors.New("ATYP_DOMAIN len error")
 		}
 		domainBuf := append([]byte{byte(len(r.DST_ADDR))}, r.DST_ADDR...)

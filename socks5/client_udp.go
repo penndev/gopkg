@@ -15,7 +15,7 @@ type UDPClient struct {
 }
 
 func (c *UDPClient) Read(b []byte) (int, error) {
-	buf := make([]byte, 1024)
+	buf := make([]byte, 65507)
 	n, err := c.Conn.Read(buf)
 	datagram := UDPDatagram{}
 	if err != nil {
@@ -27,7 +27,7 @@ func (c *UDPClient) Read(b []byte) (int, error) {
 	}
 	bufLen := len(datagram.DATA)
 	if len(b) < bufLen {
-		return 0, fmt.Errorf("UDPClient Read buf si small[%d]", bufLen)
+		return 0, fmt.Errorf("UDPClient Read buf is small[%d]", bufLen)
 	}
 	copy(b[:bufLen], datagram.DATA[:])
 	return bufLen, err

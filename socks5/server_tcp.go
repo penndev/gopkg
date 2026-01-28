@@ -9,14 +9,24 @@ import (
 )
 
 func (s *Server) TCPListen() error {
-	listen, err := net.Listen("tcp", s.Addr)
+
+	defer log.Println("golang listen udp 结束")
+	var err error
+	s.Listener, err = net.Listen("tcp", s.Addr)
 	if err != nil {
 		return err
 	}
-	defer listen.Close()
+	defer func() {
+		if s.Listener != nil {
+			s.Listener.Close()
+		}
+	}()
 	for {
-		conn, err := listen.Accept()
+		conn, err := s.Listener.Accept()
 		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return nil
+			}
 			log.Println(err)
 			continue
 		}

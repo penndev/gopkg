@@ -87,7 +87,7 @@ func (r *Replies) Encode() ([]byte, error) {
 		}
 		buf = append(buf, r.BND_ADDR...)
 	case ATYP_DOMAIN:
-		if len(r.BND_ADDR) < 1 && len(r.BND_ADDR) > 255 {
+		if len(r.BND_ADDR) < 1 || len(r.BND_ADDR) > 255 {
 			return nil, errors.New("ATYP_DOMAIN len error")
 		}
 		domainBuf := append([]byte{byte(len(r.BND_ADDR))}, r.BND_ADDR...)
