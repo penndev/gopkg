@@ -8,9 +8,12 @@ import (
 )
 
 // Socks5 Clint Conn
-type Conn struct {
+type Client struct {
+	Username string
+	Password string
+
 	// tcp客户端
-	rw net.Conn
+	Conn net.Conn
 
 	// udp客户端
 	rwUDP *UDPClient
@@ -18,7 +21,7 @@ type Conn struct {
 
 // Parse SOCKS5 Requests struct
 // https://datatracker.ietf.org/doc/html/rfc1928#section-4
-func (c *Conn) requests(network, address string) (Requests, error) {
+func (c *Client) requests(network, address string) (Requests, error) {
 	req := Requests{}
 
 	switch network {
@@ -55,25 +58,18 @@ func (c *Conn) requests(network, address string) (Requests, error) {
 	return req, nil
 }
 
-func (c *Conn) Close() error {
-	if c.rwUDP != nil {
-		c.rwUDP.Close()
-	}
-	return c.rw.Close()
-}
-
-func (c *Conn) Dial(network, address string) (net.Conn, error) {
+func (c *Client) Dial(network, address string) (net.Conn, error) {
 	req, err := c.requests(network, address)
 	if err != nil {
 		return nil, err
 	}
 	if b, err := req.Encode(); err == nil {
-		c.rw.Write(b)
+		c.Conn.Write(b)
 	} else {
 		return nil, err
 	}
 	buf := make([]byte, 231)
-	n, err := c.rw.Read(buf)
+	n, err := c.Conn.Read(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -91,67 +87,80 @@ func (c *Conn) Dial(network, address string) (net.Conn, error) {
 			return c.rwUDP, err
 		} else {
 			// how about the bind?
-			return c.rw, nil
+			return c.Conn, nil
 		}
 	} else {
 		return nil, fmt.Errorf("error replies REP [%d]", rep.REP)
 	}
 }
 
-func NewClient(address, user, pass string) (*Conn, error) {
+func (c *Client) Negotiation() error {
+	var err error
+	if c.Username == "" {
+		_, err = c.Conn.Write([]byte{Version, 0x1, byte(METHOD_NO_AUTH)})
+	} else {
+		_, err = c.Conn.Write([]byte{Version, 0x2, byte(METHOD_NO_AUTH), byte(METHOD_USERNAME_PASSWORD)})
+	}
+	if err != nil {
+		return err
+	}
+	buf := make([]byte, 2)
+	rn, err := c.Conn.Read(buf)
+	if err != nil {
+		return err
+	}
+	if rn != 2 || buf[0] != Version {
+		return errors.New("error socks5 service Version")
+	}
+	switch METHOD(buf[1]) {
+	case METHOD_NO_AUTH:
+		return nil
+	case METHOD_USERNAME_PASSWORD:
+		buf := []byte{0x01, byte(len(c.Username))}
+		buf = append(buf, []byte(c.Username)...)
+		buf = append(buf, byte(len(c.Password)))
+		buf = append(buf, []byte(c.Password)...)
+		if _, err := c.Conn.Write(buf); err != nil {
+			return err
+		}
+		resBuf := make([]byte, 2)
+		rn, err := c.Conn.Read(resBuf)
+		if err != nil {
+			return err
+		}
+		if rn != 2 || resBuf[0] != 0x01 {
+			return errors.New("error socks5 username/password Version")
+		}
+		if resBuf[1] != 0x00 {
+			return errors.New("error socks5 username/password")
+		}
+	default:
+		return errors.New("error socks method not allow")
+	}
+	return nil
+}
+
+func (c *Client) Close() error {
+	if c.rwUDP != nil {
+		c.rwUDP.Close()
+	}
+	return c.Conn.Close()
+}
+
+func NewClient(address, user, pass string) (*Client, error) {
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
 		return nil, err
 	}
-	var connects []byte
-	if user == "" {
-		connects = []byte{Version, 0x1, byte(METHOD_NO_AUTH)}
-	} else {
-		connects = []byte{Version, 0x2, byte(METHOD_NO_AUTH), byte(METHOD_USERNAME_PASSWORD)}
+	c := &Client{
+		Username: user,
+		Password: pass,
+		Conn:     conn,
 	}
-	if _, err := conn.Write(connects); err != nil {
-		conn.Close()
-		return nil, err
-	}
-	buf := make([]byte, 2)
-	rn, err := conn.Read(buf)
+	err = c.Negotiation()
 	if err != nil {
 		conn.Close()
 		return nil, err
 	}
-	if rn != 2 || buf[0] != Version {
-		conn.Close()
-		return nil, errors.New("error socks5 service Version")
-	}
-	switch METHOD(buf[1]) {
-	case METHOD_NO_AUTH:
-		return &Conn{rw: conn}, err
-	case METHOD_USERNAME_PASSWORD:
-		buf := []byte{0x01, byte(len(user))}
-		buf = append(buf, []byte(user)...)
-		buf = append(buf, byte(len(pass)))
-		buf = append(buf, []byte(pass)...)
-		if _, err := conn.Write(buf); err != nil {
-			conn.Close()
-			return nil, err
-		}
-		resBuf := make([]byte, 2)
-		rn, err := conn.Read(resBuf)
-		if err != nil {
-			conn.Close()
-			return nil, err
-		}
-		if rn != 2 || resBuf[0] != 0x01 {
-			conn.Close()
-			return nil, errors.New("error socks5 username/password Version")
-		}
-		if resBuf[1] != 0x00 {
-			conn.Close()
-			return nil, errors.New("error socks5 username/password")
-		}
-		return &Conn{rw: conn}, err
-	default:
-		conn.Close()
-		return nil, errors.New("error socks method not allow")
-	}
+	return c, nil
 }

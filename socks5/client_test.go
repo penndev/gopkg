@@ -1,6 +1,7 @@
 package socks5_test
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"testing"
@@ -10,7 +11,7 @@ import (
 )
 
 func TestTCP(t *testing.T) {
-	s5, err := socks5.NewClient("127.0.0.1:10800", "username", "password")
+	s5, err := socks5.NewClient("127.0.0.1:1080", "username", "password")
 	if err != nil {
 		panic(err)
 	}
@@ -71,4 +72,43 @@ func TestUDP(t *testing.T) {
 		log.Println(buf[:n], n)
 		t.Fail()
 	}
+}
+
+func TestTlsTCP(t *testing.T) {
+	tlsConn, err := tls.Dial("tcp", "127.0.0.1:443", &tls.Config{})
+	if err != nil {
+		panic(err)
+	}
+	defer tlsConn.Close()
+	socks := &socks5.Client{
+		Username: "username",
+		Password: "password",
+		Conn:     tlsConn,
+	}
+	// socks5 握手
+	err = socks.Negotiation()
+	if err != nil {
+		panic(err)
+	}
+	// 发起真实的请求
+	conn, err := socks.Dial("tcp", "baidu.com:80")
+	if err != nil {
+		panic(err)
+	}
+
+	req := "GET / HTTP/1.1\r\n" +
+		"Host: baidu.com\r\n" +
+		"User-Agent: curl/8.0\r\n" +
+		"Accept: */*\r\n" +
+		"Connection: close\r\n" +
+		"\r\n"
+
+	_, err = conn.Write([]byte(req))
+	if err != nil {
+		panic(err)
+	}
+	buf := make([]byte, 1024)
+	n, err := conn.Read(buf)
+	fmt.Println(string(buf[:n]))
+	// Output: HTTP/1.1 400 Bad Request
 }

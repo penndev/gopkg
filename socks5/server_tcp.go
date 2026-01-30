@@ -5,22 +5,21 @@ import (
 	"log"
 	"net"
 	"slices"
-	"time"
 )
 
 func (s *Server) TCPListen() error {
-
-	defer log.Println("golang listen udp 结束")
 	var err error
-	s.Listener, err = net.Listen("tcp", s.Addr)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if s.Listener != nil {
-			s.Listener.Close()
+	if s.Listener == nil {
+		s.Listener, err = net.Listen("tcp", s.Addr)
+		if err != nil {
+			return err
 		}
-	}()
+		defer func() {
+			if s.Listener != nil {
+				s.Listener.Close()
+			}
+		}()
+	}
 	for {
 		conn, err := s.Listener.Accept()
 		if err != nil {
@@ -30,53 +29,48 @@ func (s *Server) TCPListen() error {
 			log.Println(err)
 			continue
 		}
-		go s.handleConn(conn)
+		go s.HandleConn(conn)
 	}
 }
 
-func (s *Server) handleConn(conn net.Conn) {
+func (s *Server) HandleConn(conn net.Conn) error {
 	defer func() {
 		conn.Close()
 		if r := recover(); r != nil {
 			log.Println("panic recovered:", r)
 		}
 	}()
-	conn.SetDeadline(time.Now().Add(120 * time.Second))
 	err := s.negotiation(conn)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
+	// 格式化请求为结构体
 	buf := make([]byte, 263)
 	req := &Requests{}
 	if buflen, err := conn.Read(buf); err != nil {
-		log.Println(err)
-		return
+		return err
 	} else {
 		buf = buf[:buflen]
 	}
 	if err := req.Decode(buf); err != nil {
-		log.Println(err)
-		return
+		return err
 	}
-
+	// 处理请求相应的方法
 	switch req.CMD {
 	case CMD_CONNECT:
 		err := s.handleConnect(conn, req)
 		if err != nil {
-			log.Println("handleConnect err:", err)
+			return err
 		}
-	// case CMD_BIND:
-	// 	// handle bind
 	case CMD_UDP_ASSOCIATE:
 		err := s.handleUDPAssociate(conn, req)
 		if err != nil {
-			log.Println("handleUDPAssociate err:", err)
+			return err
 		}
 	default:
-		return
+		return errors.New("unsupported command")
 	}
-
+	return nil
 }
 
 func (s *Server) negotiation(conn net.Conn) error {
