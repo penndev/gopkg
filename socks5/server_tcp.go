@@ -46,7 +46,7 @@ func (s *Server) HandleConn(conn net.Conn) error {
 	}
 	// 格式化请求为结构体
 	buf := make([]byte, 263)
-	req := &Requests{}
+	req := Requests{}
 	if buflen, err := conn.Read(buf); err != nil {
 		return err
 	} else {
@@ -126,25 +126,34 @@ func (s *Server) authenticate(conn net.Conn) error {
 	return nil
 }
 
-func (s *Server) handleConnect(conn net.Conn, req *Requests) error {
+func (s *Server) handleConnect(conn net.Conn, req Requests) error {
+	replice := func(status REP) error {
+		rep := Replies{
+			REP:      status,
+			ATYP:     req.ATYP,
+			BND_ADDR: req.DST_ADDR,
+			BND_PORT: req.DST_PORT,
+		}
+		repBuf, err := rep.Encode()
+		if err != nil {
+			return err
+		}
+		_, err = conn.Write(repBuf)
+		return err
+	}
+	return s.HandleConnect(conn, req, replice)
+}
+
+func HandleConnect(conn net.Conn, req Requests, replies func(status REP) error) error {
 	addr := req.Addr()
-	log.Println("reqeust remote ->", addr)
 	remote, err := net.Dial("tcp", addr)
 	if err != nil {
+		replies(REP_CONNECTION_REFUSED)
 		return err
 	}
+	replies(REP_SUCCEEDED)
 	defer remote.Close()
-	rep := Replies{
-		REP:      REP_SUCCEEDED,
-		ATYP:     req.ATYP,
-		BND_ADDR: req.DST_ADDR,
-		BND_PORT: req.DST_PORT,
-	}
-	repBuf, err := rep.Encode()
-	if err != nil {
-		return err
-	}
-	conn.Write(repBuf)
+	log.Println("reqeust remote ->", addr)
 	Pipe(conn, remote)
 	return nil
 }

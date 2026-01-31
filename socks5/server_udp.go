@@ -1,12 +1,12 @@
 package socks5
 
 import (
+	"errors"
 	"log"
 	"net"
 )
 
 func (s *Server) UDPListen() error {
-	defer log.Println("golang listen 结束")
 	var err error
 	s.UDPAddr, err = net.ResolveUDPAddr("udp", s.Addr)
 	if err != nil {
@@ -64,8 +64,11 @@ func (s *Server) UDPHandle(addr *net.UDPAddr, buf []byte) {
 // 多次从 UDPMatch 获取看是否 *net.UDPAddr 绑定，并且IP能对上 30秒的窗口期
 // 如果没绑定则断开连接
 // 绑定了则创建匿名函数，进行隧道udp数据处理
-func (s *Server) handleUDPAssociate(conn net.Conn, req *Requests) error {
+func (s *Server) handleUDPAssociate(conn net.Conn, req Requests) error {
 	defer conn.Close()
+	if s.UDPConn == nil {
+		return errors.New("UDP 监听未启动")
+	}
 	raddr, err := net.ResolveUDPAddr("udp", req.Addr())
 	if err != nil {
 		return err
