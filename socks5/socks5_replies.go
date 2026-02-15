@@ -94,7 +94,7 @@ func (r *Replies) Encode() ([]byte, error) {
 		buf = append(buf, domainBuf...)
 	case ATYP_IPV6:
 		if len(r.BND_ADDR) != 16 {
-			return nil, errors.New("ATYP_IPV6 len not 4")
+			return nil, errors.New("ATYP_IPV6 len not 16")
 		}
 		buf = append(buf, r.BND_ADDR...)
 	default:

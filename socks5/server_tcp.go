@@ -20,6 +20,9 @@ func (s *Server) TCPListen() error {
 			}
 		}()
 	}
+	if s.HandleConnect == nil {
+		s.HandleConnect = HandleConnect
+	}
 	for {
 		conn, err := s.Listener.Accept()
 		if err != nil {
@@ -153,7 +156,7 @@ func HandleConnect(conn net.Conn, req Requests, replies func(status REP) error) 
 	}
 	replies(REP_SUCCEEDED)
 	defer remote.Close()
-	log.Println("reqeust remote ->", addr)
+	log.Println("request remote ->", addr)
 	Pipe(conn, remote)
 	return nil
 }

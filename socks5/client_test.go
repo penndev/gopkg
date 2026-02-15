@@ -38,7 +38,7 @@ func TestTCP(t *testing.T) {
 }
 
 func TestUDP(t *testing.T) {
-	s5, err := socks5.NewClient("127.0.0.1:10800", "username", "password")
+	s5, err := socks5.NewClient("127.0.0.1:1080", "username", "password")
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +75,7 @@ func TestUDP(t *testing.T) {
 }
 
 func TestTlsTCP(t *testing.T) {
-	tlsConn, err := tls.Dial("tcp", "127.0.0.1:443", &tls.Config{})
+	tlsConn, err := tls.Dial("tcp", "127.0.0.1:443", &tls.Config{InsecureSkipVerify: true})
 	if err != nil {
 		panic(err)
 	}

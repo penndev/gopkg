@@ -60,7 +60,7 @@ func (s *Server) UDPHandle(addr *net.UDPAddr, buf []byte) {
 	}
 }
 
-// 响应udp相应
+// 响应udp
 // 多次从 UDPMatch 获取看是否 *net.UDPAddr 绑定，并且IP能对上 30秒的窗口期
 // 如果没绑定则断开连接
 // 绑定了则创建匿名函数，进行隧道udp数据处理

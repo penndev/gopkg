@@ -7,7 +7,7 @@ import (
 )
 
 func TestServe(t *testing.T) {
-	err := socks5.Listen("127.0.0.1:10800", "user", "pass")
+	err := socks5.Listen("127.0.0.1:1080", "user", "pass")
 	if err != nil {
 		t.Fatal(err)
 	}
