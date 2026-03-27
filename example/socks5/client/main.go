@@ -20,8 +20,8 @@ func main() {
 		Username: "",
 		Password: "",
 		METHOD:   socks5.METHOD_NO_AUTH,
-		HandleConnect: func(conn net.Conn, req socks5.Requests, replies func(status socks5.REP) error) error {
-			tlsConn, err := tls.Dial("tcp", "remote.mtmov.com:443", &tls.Config{InsecureSkipVerify: false})
+		HandleConnect: func(conn net.Conn, req socks5.Requests, replies socks5.HandleReply) error {
+			tlsConn, err := tls.Dial("tcp", "example.com:443", &tls.Config{InsecureSkipVerify: false})
 			if err != nil {
 				log.Println("tls.Dial error:", err)
 				replies(socks5.REP_CONNECTION_REFUSED)
@@ -29,7 +29,7 @@ func main() {
 			}
 			defer tlsConn.Close()
 			s5Client := &socks5.Client{
-				Username: "penn",
+				Username: "penndev",
 				Password: "123456",
 				Conn:     tlsConn,
 			}
