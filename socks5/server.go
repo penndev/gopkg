@@ -1,15 +1,20 @@
 package socks5
 
-import "net"
+import (
+	"log"
+	"net"
+)
+
+type HandleReply func(status REP) error
 
 type Server struct {
 	Addr     string
 	Username string
 	Password string
-	METHOD   METHOD
+	Method   METHOD
 	// TCP
 	Listener      net.Listener
-	HandleConnect func(conn net.Conn, req Requests, replies func(status REP) error) error
+	HandleConnect func(net.Conn, Requests, HandleReply) error
 
 	// UDP相关
 	UDPAddr *net.UDPAddr // 服务器监听的地址，用于返回给客户端连接
@@ -25,11 +30,8 @@ func Listen(addr, username, password string) error {
 		Addr:          addr,
 		Username:      username,
 		Password:      password,
-		METHOD:        METHOD_NO_AUTH,
+		Method:        METHOD_NO_AUTH,
 		HandleConnect: HandleConnect,
-	}
-	if username != "" {
-		s.METHOD = METHOD_USERNAME_PASSWORD
 	}
 	errc := make(chan error, 2)
 	go func() {
@@ -52,4 +54,18 @@ func (s *Server) Close() {
 	if s.Listener != nil {
 		s.Listener.Close()
 	}
+}
+
+func HandleConnect(conn net.Conn, req Requests, rep HandleReply) error {
+	addr := req.Addr()
+	remote, err := net.Dial("tcp", addr)
+	if err != nil {
+		rep(REP_CONNECTION_REFUSED)
+		return err
+	}
+	rep(REP_SUCCEEDED)
+	defer remote.Close()
+	log.Println("request remote ->", addr)
+	Pipe(conn, remote)
+	return nil
 }

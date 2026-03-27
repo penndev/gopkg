@@ -8,6 +8,11 @@ import (
 )
 
 func (s *Server) TCPListen() error {
+	if s.Username == "" {
+		s.Method = METHOD_NO_AUTH
+	} else {
+		s.Method = METHOD_USERNAME_PASSWORD
+	}
 	var err error
 	if s.Listener == nil {
 		s.Listener, err = net.Listen("tcp", s.Addr)
@@ -86,8 +91,8 @@ func (s *Server) negotiation(conn net.Conn) error {
 		return errors.New("readMethod version error")
 	}
 	methods := 2 + int(buf[1])
-	if slices.Contains(buf[2:methods], byte(s.METHOD)) {
-		switch s.METHOD {
+	if slices.Contains(buf[2:methods], byte(s.Method)) {
+		switch s.Method {
 		case METHOD_NO_AUTH:
 			_, err = conn.Write([]byte{Version, byte(METHOD_NO_AUTH)})
 		case METHOD_USERNAME_PASSWORD:
@@ -145,18 +150,4 @@ func (s *Server) handleConnect(conn net.Conn, req Requests) error {
 		return err
 	}
 	return s.HandleConnect(conn, req, replice)
-}
-
-func HandleConnect(conn net.Conn, req Requests, replies func(status REP) error) error {
-	addr := req.Addr()
-	remote, err := net.Dial("tcp", addr)
-	if err != nil {
-		replies(REP_CONNECTION_REFUSED)
-		return err
-	}
-	replies(REP_SUCCEEDED)
-	defer remote.Close()
-	log.Println("request remote ->", addr)
-	Pipe(conn, remote)
-	return nil
 }
