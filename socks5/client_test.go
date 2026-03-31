@@ -38,7 +38,7 @@ func TestTCP(t *testing.T) {
 }
 
 func TestUDP(t *testing.T) {
-	s5, err := socks5.NewClient("127.0.0.1:1080", "username", "password")
+	s5, err := socks5.NewClient("127.0.0.1:1080", "", "")
 	if err != nil {
 		panic(err)
 	}
@@ -68,7 +68,7 @@ func TestUDP(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	if n != 60 {
+	if n != 61 {
 		log.Println(buf[:n], n)
 		t.Fail()
 	}

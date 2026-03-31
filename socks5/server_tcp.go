@@ -31,10 +31,7 @@ func (s *Server) TCPListen() error {
 	for {
 		conn, err := s.Listener.Accept()
 		if err != nil {
-			if errors.Is(err, net.ErrClosed) {
-				return nil
-			}
-			log.Println(err)
+			// log.Println(err)
 			continue
 		}
 		go s.HandleConn(conn)

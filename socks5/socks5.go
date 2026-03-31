@@ -33,6 +33,16 @@ const (
 	CMD_UDP_ASSOCIATE CMD = 0x03
 )
 
+func (c CMD) Network() string {
+	switch c {
+	case CMD_CONNECT:
+		return "tcp"
+	case CMD_UDP_ASSOCIATE:
+		return "udp"
+	}
+	return ""
+}
+
 // o  ATYP   address type of following address
 //
 //	o  IP V4 address: X'01'

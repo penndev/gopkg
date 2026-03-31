@@ -12,12 +12,12 @@ func Pipe(src, dst net.Conn) {
 	go func() {
 		defer wg.Done()
 		io.Copy(dst, src)
+		dst.Close()
 	}()
 	go func() {
 		defer wg.Done()
 		io.Copy(src, dst)
+		src.Close()
 	}()
 	wg.Wait()
-	src.Close()
-	dst.Close()
 }

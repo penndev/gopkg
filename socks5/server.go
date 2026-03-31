@@ -3,6 +3,8 @@ package socks5
 import (
 	"log"
 	"net"
+
+	"github.com/penndev/gopkg/util"
 )
 
 type HandleReply func(status REP) error
@@ -58,14 +60,14 @@ func (s *Server) Close() {
 
 func HandleConnect(conn net.Conn, req Requests, rep HandleReply) error {
 	addr := req.Addr()
-	remote, err := net.Dial("tcp", addr)
+	log.Println("request remote:["+req.CMD.Network()+"] ->", addr)
+	remote, err := net.Dial(req.CMD.Network(), addr)
 	if err != nil {
 		rep(REP_CONNECTION_REFUSED)
 		return err
 	}
 	rep(REP_SUCCEEDED)
 	defer remote.Close()
-	log.Println("request remote ->", addr)
-	Pipe(conn, remote)
+	util.Pipe(conn, remote)
 	return nil
 }
