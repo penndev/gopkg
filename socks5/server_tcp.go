@@ -28,14 +28,19 @@ func (s *Server) TCPListen() error {
 	if s.HandleConnect == nil {
 		s.HandleConnect = HandleConnect
 	}
+	var conn net.Conn
 	for {
-		conn, err := s.Listener.Accept()
+		conn, err = s.Listener.Accept()
 		if err != nil {
-			// log.Println(err)
+			if errors.Is(err, net.ErrClosed) {
+				break
+			}
+			log.Println("TCPListen Accept error:", err)
 			continue
 		}
 		go s.HandleConn(conn)
 	}
+	return err
 }
 
 func (s *Server) HandleConn(conn net.Conn) error {

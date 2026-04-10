@@ -26,14 +26,20 @@ func (s *Server) UDPListen() error {
 
 	// 数据部分：最大 65,535 - 20 (IP头) - 8 (UDP头) = 65,507 字节
 	buf := make([]byte, 65507)
+	var n int
+	var addr *net.UDPAddr
 	for {
-		n, addr, err := s.UDPConn.ReadFromUDP(buf)
+		n, addr, err = s.UDPConn.ReadFromUDP(buf)
 		if err != nil {
-			log.Println(err)
+			if errors.Is(err, net.ErrClosed) {
+				break
+			}
+			log.Println("UDPListen ReadFromUDP error:", err)
 			continue
 		}
 		go s.UDPHandle(addr, buf[:n])
 	}
+	return err
 }
 
 // 处理udp数据，收到udp的数据从udp session中获取通道，
