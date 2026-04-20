@@ -54,6 +54,9 @@ func (r *Requests) Encode() ([]byte, error) {
 }
 
 func (r *Requests) Decode(buf []byte) error {
+	if len(buf) < 7 {
+		return errors.New("Requests Decode error byte")
+	}
 	if buf[0] != Version {
 		return errors.New("socks5 version error")
 	}
@@ -77,6 +80,9 @@ func (r *Requests) Decode(buf []byte) error {
 		r.DST_PORT = binary.BigEndian.Uint16(buf[8:10])
 	case ATYP_DOMAIN:
 		r.ATYP = ATYP_DOMAIN
+		if len(buf) < 5 {
+			return errors.New("Requests Decode domain len err")
+		}
 		domainLen := int(buf[4])
 		if len(buf) != (domainLen + 7) {
 			return errors.New("Requests Decode domain len err")

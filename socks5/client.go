@@ -64,7 +64,9 @@ func (c *Client) Dial(network, address string) (net.Conn, error) {
 		return nil, err
 	}
 	if b, err := req.Encode(); err == nil {
-		c.Conn.Write(b)
+		if _, err := c.Conn.Write(b); err != nil {
+			return nil, err
+		}
 	} else {
 		return nil, err
 	}
@@ -74,7 +76,9 @@ func (c *Client) Dial(network, address string) (net.Conn, error) {
 		return nil, err
 	}
 	rep := Replies{}
-	rep.Decode(buf[:n])
+	if err := rep.Decode(buf[:n]); err != nil {
+		return nil, err
+	}
 	if rep.REP == 0x00 {
 		if req.CMD == CMD_UDP_ASSOCIATE {
 			UDPrw, err := net.Dial("udp", rep.Addr())

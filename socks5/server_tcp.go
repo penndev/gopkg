@@ -85,14 +85,21 @@ func (s *Server) HandleConn(conn net.Conn) error {
 
 func (s *Server) negotiation(conn net.Conn) error {
 	buf := make([]byte, 258)
-	_, err := conn.Read(buf)
+	n, err := conn.Read(buf)
 	if err != nil {
 		return err
 	}
+	if n < 2 {
+		return errors.New("readMethod data too short")
+	}
+	buf = buf[:n]
 	if buf[0] != Version {
 		return errors.New("readMethod version error")
 	}
 	methods := 2 + int(buf[1])
+	if methods > len(buf) {
+		return errors.New("readMethod methods len error")
+	}
 	if slices.Contains(buf[2:methods], byte(s.Method)) {
 		switch s.Method {
 		case METHOD_NO_AUTH:
@@ -113,20 +120,30 @@ func (s *Server) negotiation(conn net.Conn) error {
 
 func (s *Server) authenticate(conn net.Conn) error {
 	buf := make([]byte, 513)
-	_, err := conn.Read(buf)
+	n, err := conn.Read(buf)
 	if err != nil {
 		return err
 	}
+	if n < 3 {
+		return errors.New("authenticate data too short")
+	}
+	buf = buf[:n]
 	if buf[0] != 0x01 {
 		return errors.New("authenticate version error")
 	}
 	ulen := int(buf[1])
+	if 2+ulen >= len(buf) {
+		return errors.New("authenticate username len error")
+	}
 	uname := string(buf[2 : 2+ulen])
 	if s.Username != uname {
 		conn.Write([]byte{0x01, 0xff})
 		return errors.New("authenticate username error")
 	}
 	plen := int(buf[2+ulen])
+	if 3+ulen+plen > len(buf) {
+		return errors.New("authenticate password len error")
+	}
 	passwd := string(buf[3+ulen : 3+ulen+plen])
 	if s.Password != passwd {
 		conn.Write([]byte{0x01, 0xff})
