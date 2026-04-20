@@ -7,6 +7,107 @@ import (
 	"time"
 )
 
+// udpBindReply returns SOCKS5 reply ATYP and bound address for the UDP relay listen addr.
+func udpBindReply(addr *net.UDPAddr) (atyp ATYP, bnd []byte, port uint16) {
+	if addr == nil {
+		return ATYP_IPV4, net.IPv4zero.To4(), 0
+	}
+	ip := addr.IP
+	if ip4 := ip.To4(); ip4 != nil {
+		return ATYP_IPV4, ip4, uint16(addr.Port)
+	}
+	return ATYP_IPV6, ip.To16(), uint16(addr.Port)
+}
+
+// udpChanNotify sends payload to a session channel; no-op if ch is nil.
+// If the session has been torn down and ch is closed, send panics are swallowed.
+func udpChanNotify(ch chan []byte, data []byte) {
+	if ch == nil {
+		return
+	}
+	defer func() { recover() }()
+	ch <- data
+}
+
+// UDPSessionGet 按客户端 UDP 端点 key（通常为 addr.String()）查询已绑定的会话数据 channel。
+// 勿在已持有 s.udpSessionMu.Lock 的同一条调用链上调用，否则与 RLock 搭配会死锁。
+func (s *Server) UDPSessionGet(endpoint string) (ch chan []byte, ok bool) {
+	s.udpSessionMu.RLock()
+	defer s.udpSessionMu.RUnlock()
+	ch, ok = s.UDPSession[endpoint]
+	return
+}
+
+// UDPSessionSet 设置会话 channel；ch 为 nil 时表示删除该 endpoint。
+func (s *Server) UDPSessionSet(endpoint string, ch chan []byte) {
+	s.udpSessionMu.Lock()
+	defer s.udpSessionMu.Unlock()
+	if s.UDPSession == nil {
+		s.UDPSession = make(map[string]chan []byte)
+	}
+	if ch == nil {
+		delete(s.UDPSession, endpoint)
+		return
+	}
+	s.UDPSession[endpoint] = ch
+}
+
+// UDPSessionNotifyIfPresent 若 endpoint 已有会话则投递 data 并返回 true。
+func (s *Server) UDPSessionNotifyIfPresent(endpoint string, data []byte) bool {
+	s.udpSessionMu.Lock()
+	ch, ok := s.UDPSession[endpoint]
+	s.udpSessionMu.Unlock()
+	if !ok {
+		return false
+	}
+	udpChanNotify(ch, data)
+	return true
+}
+
+// UDPSessionGetOrCreate 若尚无会话则创建并返回 (ch, false)；若已存在则返回 (ch)。
+func (s *Server) UDPSessionGetOrCreate(endpoint string, bufCap int) (ch chan []byte) {
+	s.udpSessionMu.Lock()
+	defer s.udpSessionMu.Unlock()
+	if ch, ok := s.UDPSession[endpoint]; ok {
+		return ch
+	}
+	ch = make(chan []byte, bufCap)
+	s.UDPSession[endpoint] = ch
+	return ch
+}
+
+// UDPMatchGet 查询客户端源 IP（lhost）与 SOCKS 目标地址串 dstAddr 对应的 UDP 绑定通知 channel。
+func (s *Server) UDPMatchGet(lhost, dstAddr string) (mch chan *net.UDPAddr, ok bool) {
+	s.udpMatchMu.RLock()
+	defer s.udpMatchMu.RUnlock()
+	outer, ok1 := s.UDPMatch[lhost]
+	if !ok1 {
+		return nil, false
+	}
+	mch, ok = outer[dstAddr]
+	return
+}
+
+// UDPMatchSet 注册或删除匹配项；mch 为 nil 时删除 (lhost, dstAddr)。
+func (s *Server) UDPMatchSet(lhost, dstAddr string, mch chan *net.UDPAddr) {
+	s.udpMatchMu.Lock()
+	defer s.udpMatchMu.Unlock()
+	if s.UDPMatch == nil {
+		s.UDPMatch = make(map[string]map[string]chan *net.UDPAddr)
+	}
+	if _, exist := s.UDPMatch[lhost]; !exist {
+		s.UDPMatch[lhost] = make(map[string]chan *net.UDPAddr)
+	}
+	if mch == nil {
+		delete(s.UDPMatch[lhost], dstAddr)
+		if len(s.UDPMatch[lhost]) == 0 {
+			delete(s.UDPMatch, lhost)
+		}
+		return
+	}
+	s.UDPMatch[lhost][dstAddr] = mch
+}
+
 func (s *Server) UDPListen() error {
 	var err error
 	s.UDPAddr, err = net.ResolveUDPAddr("udp", s.Addr)
@@ -20,16 +121,14 @@ func (s *Server) UDPListen() error {
 	if err != nil {
 		return err
 	}
-
+	// 初始化时候没有竞争，所以不需要加锁
 	s.UDPSession = make(map[string]chan []byte)
 	s.UDPMatch = make(map[string]map[string]chan *net.UDPAddr)
 
-	// 数据部分：最大 65,535 - 20 (IP头) - 8 (UDP头) = 65,507 字节
-	buf := make([]byte, 65507)
-	var n int
-	var addr *net.UDPAddr
 	for {
-		n, addr, err = s.UDPConn.ReadFromUDP(buf)
+		// 数据部分：最大 65,535 - 20 (IP头) - 8 (UDP头) = 65,507 字节
+		buf := make([]byte, 65507)
+		n, addr, err := s.UDPConn.ReadFromUDP(buf)
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
 				break
@@ -42,32 +141,45 @@ func (s *Server) UDPListen() error {
 	return err
 }
 
-// 处理udp数据，收到udp的数据从udp session中获取通道，
-// 如果存在则直接传递数据，
-// 不存在则开启阻塞匹配
-// 匹配成功后，将通道传递给udp session，并传递数据
+// udphandle 处理
+// @param addr 客户端的IP地址
+// @param buf 客户端的UDP数据
+// @return 无
 func (s *Server) UDPHandle(addr *net.UDPAddr, buf []byte) {
 	udpd := UDPDatagram{}
 	err := udpd.Decode(buf)
 	if err != nil {
-		log.Println(err)
 		return
 	}
-	// 存在session直接传递数据，不存在则开启阻塞匹配
-	if ch, exist := s.UDPSession[addr.String()]; exist {
-		ch <- buf
-	} else {
-		lhost, _, err := net.SplitHostPort(addr.String())
-		if err != nil {
-			log.Println(err)
+
+	// 已经存在数据session中
+	ch, exist := s.UDPSessionGet(addr.String())
+	if exist {
+		udpChanNotify(ch, udpd.DATA)
+		return
+	}
+
+	// 查看是否存在UDPMatch等待匹配
+	clientHost, _, err := net.SplitHostPort(addr.String())
+	if err != nil {
+		return
+	}
+	matchChan, ok := s.UDPMatchGet(clientHost, udpd.Addr())
+	if !ok {
+		return
+	}
+	// 创建数据session进行绑定方便下次直接就传送数据，不用一直走匹配流程
+	sessionChan := s.UDPSessionGetOrCreate(addr.String(), 16)
+	// 通过matchChan告诉对端数据回复给谁
+	func() {
+		if matchChan == nil || addr == nil {
 			return
 		}
-		if mch, exist := s.UDPMatch[lhost][udpd.Addr()]; exist {
-			s.UDPSession[addr.String()] = make(chan []byte, 10)
-			mch <- addr
-			s.UDPSession[addr.String()] <- udpd.DATA
-		}
-	}
+		defer func() { recover() }()
+		matchChan <- addr
+	}()
+	// 本地隧道数据到对端
+	udpChanNotify(sessionChan, udpd.DATA)
 }
 
 // 响应udp
@@ -81,31 +193,32 @@ func (s *Server) handleUDPAssociate(conn net.Conn, req Requests) error {
 	}
 
 	// 获取本地host地址只绑定IP，不绑定端口
-	lhost, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+	clientHost, _, err := net.SplitHostPort(conn.RemoteAddr().String())
 	if err != nil {
 		return err
 	}
-	if _, exist := s.UDPMatch[lhost]; !exist {
-		s.UDPMatch[lhost] = make(map[string]chan *net.UDPAddr)
-	}
-	// 创建匹配通道UDPMatch，
-	// 用于匹配客户端IP与请求的远程IP 端口进行绑定。
-	// udp收到连接请求就会向s.UDPMatch[lhost][req.Addr()]传入新的客户端*net.UDPAddr
-	mch := make(chan *net.UDPAddr)
-	s.UDPMatch[lhost][req.Addr()] = mch
+	matchChan := make(chan *net.UDPAddr)
+	defer close(matchChan)
+	s.UDPMatchSet(clientHost, req.Addr(), matchChan)
 
-	// replice(REP_SUCCEEDED)
 	connClient, connPipe := net.Pipe()
-	defer connClient.Close()
 	defer connPipe.Close()
-	// 必须应答客户端，否则客户端会一直等待
+	defer connClient.Close()
+
+	// 应答客户端 && 隧道绑定
 	go func() {
 		replice := func(status REP) error {
 			rep := Replies{
-				REP:      REP_SUCCEEDED,
-				ATYP:     req.ATYP,
-				BND_ADDR: s.UDPAddr.IP.To4(),
-				BND_PORT: uint16(s.UDPAddr.Port),
+				REP:      status,
+				ATYP:     ATYP_IPV4,
+				BND_ADDR: net.IPv4zero.To4(),
+				BND_PORT: 0,
+			}
+			if status == REP_SUCCEEDED {
+				atyp, bnd, port := udpBindReply(s.UDPAddr)
+				rep.ATYP = atyp
+				rep.BND_ADDR = bnd
+				rep.BND_PORT = port
 			}
 			repBuf, err := rep.Encode()
 			if err != nil {
@@ -120,20 +233,22 @@ func (s *Server) handleUDPAssociate(conn net.Conn, req Requests) error {
 	// 收到客户端的IP和端口则进行绑定(一开始只有IP确定，端口不确定，因为又重新连接了udp)
 	var localAddr *net.UDPAddr
 	select {
-	case localAddr = <-mch:
+	case localAddr = <-matchChan:
 	case <-time.After(10 * time.Second):
+		s.UDPMatchSet(clientHost, req.Addr(), nil)
 		return errors.New("udp bind timeout")
 	}
-	localUDPDatagramChan := s.UDPSession[localAddr.String()]
-	defer func() {
-		delete(s.UDPSession, localAddr.String())
-		delete(s.UDPMatch[lhost], req.Addr())
-	}()
+	sessionChan, ok := s.UDPSessionGet(localAddr.String())
+	if !ok {
+		s.UDPMatchSet(clientHost, req.Addr(), nil)
+		return errors.New("udp session missing")
+	}
 	// 收到本地消息传入隧道
 	go func() {
-		for {
-			buf := <-localUDPDatagramChan
-			connClient.Write(buf)
+		for buf := range sessionChan {
+			if _, err := connClient.Write(buf); err != nil {
+				return
+			}
 		}
 	}()
 	// 收到隧道消息传入本地
@@ -160,5 +275,5 @@ func (s *Server) handleUDPAssociate(conn net.Conn, req Requests) error {
 	// 如果tcp断开则udp也必须断开，协议要求
 	buf := make([]byte, 1)
 	_, err = conn.Read(buf)
-	return nil
+	return err
 }

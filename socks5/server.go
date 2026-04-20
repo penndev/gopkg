@@ -3,6 +3,7 @@ package socks5
 import (
 	"log"
 	"net"
+	"sync"
 
 	"github.com/penndev/gopkg/util"
 )
@@ -22,9 +23,11 @@ type Server struct {
 	UDPAddr *net.UDPAddr // 服务器监听的地址，用于返回给客户端连接
 	UDPConn *net.UDPConn // 服务器监听的连接实例
 	// 给UDP获取从本地的隧道 map[客户端的IP地址]map[要连接的服务器IP:PORT]接收数据的channel
-	UDPMatch map[string]map[string]chan *net.UDPAddr
+	UDPMatch   map[string]map[string]chan *net.UDPAddr
+	udpMatchMu sync.RWMutex // UDPMatch
 	// 给UDP获取从本地的隧道 map[客户端的IP:PORT]map[要连接的服务器IP:PORT]接收数据的channel
-	UDPSession map[string]chan []byte
+	UDPSession   map[string]chan []byte
+	udpSessionMu sync.RWMutex // UDPSession
 }
 
 func Listen(addr, username, password string) error {
