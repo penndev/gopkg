@@ -198,8 +198,11 @@ func (s *Server) handleUDPAssociate(conn net.Conn, req Requests) error {
 		return err
 	}
 	matchChan := make(chan *net.UDPAddr)
-	defer close(matchChan)
 	s.UDPMatchSet(clientHost, req.Addr(), matchChan)
+	matchClose := func() {
+		s.UDPMatchSet(clientHost, req.Addr(), nil)
+		close(matchChan)
+	}
 
 	connClient, connPipe := net.Pipe()
 	defer connPipe.Close()
@@ -235,13 +238,17 @@ func (s *Server) handleUDPAssociate(conn net.Conn, req Requests) error {
 	select {
 	case localAddr = <-matchChan:
 	case <-time.After(10 * time.Second):
-		s.UDPMatchSet(clientHost, req.Addr(), nil)
+		matchClose()
 		return errors.New("udp bind timeout")
 	}
 	sessionChan, ok := s.UDPSessionGet(localAddr.String())
 	if !ok {
-		s.UDPMatchSet(clientHost, req.Addr(), nil)
+		matchClose()
 		return errors.New("udp session missing")
+	}
+	sessionClose := func() {
+		close(sessionChan)
+		s.UDPSessionSet(localAddr.String(), nil)
 	}
 	// 收到本地消息传入隧道
 	go func() {
@@ -275,5 +282,7 @@ func (s *Server) handleUDPAssociate(conn net.Conn, req Requests) error {
 	// 如果tcp断开则udp也必须断开，协议要求
 	buf := make([]byte, 1)
 	_, err = conn.Read(buf)
+	sessionClose()
+	matchClose()
 	return err
 }
