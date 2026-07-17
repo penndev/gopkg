@@ -1,7 +1,7 @@
 package ip2region
 
 import (
-	"log"
+	"net/netip"
 	"strings"
 )
 
@@ -36,10 +36,20 @@ func NewIPRegion(s string) IPRegion {
 }
 
 func Find(ip string) IPRegion {
-	// 加载数据库文件
-	region, err := searcher.SearchByStr(ip)
+	addr, err := netip.ParseAddr(ip)
 	if err != nil {
-		log.Fatal(err)
+		return IPRegion{}
+	}
+	addr = addr.Unmap()
+
+	var region string
+	if addr.Is4() {
+		region, err = searcher.SearchByStr(addr.String())
+	} else {
+		region, err = searcherV6.SearchByStr(addr.String())
+	}
+	if err != nil {
+		return IPRegion{}
 	}
 	return NewIPRegion(region)
 }

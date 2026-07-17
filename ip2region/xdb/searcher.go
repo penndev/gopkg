@@ -12,8 +12,10 @@
 package xdb
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
+	"net/netip"
 	"os"
 )
 
@@ -74,6 +76,7 @@ func NewHeader(input []byte) (*Header, error) {
 
 type Searcher struct {
 	handle *os.File
+	ipv6   bool
 
 	// header info
 	header  *Header
@@ -124,6 +127,16 @@ func NewWithBuffer(cBuff []byte) (*Searcher, error) {
 	return baseNew("", nil, cBuff)
 }
 
+// NewWithIPv6Buffer creates a searcher for an IPv6 xdb database.
+func NewWithIPv6Buffer(cBuff []byte) (*Searcher, error) {
+	searcher, err := baseNew("", nil, cBuff)
+	if err != nil {
+		return nil, err
+	}
+	searcher.ipv6 = true
+	return searcher, nil
+}
+
 func (s *Searcher) Close() {
 	if s.handle != nil {
 		err := s.handle.Close()
@@ -140,12 +153,79 @@ func (s *Searcher) GetIOCount() int {
 
 // SearchByStr find the region for the specified ip string
 func (s *Searcher) SearchByStr(str string) (string, error) {
+	if s.ipv6 {
+		addr, err := netip.ParseAddr(str)
+		if err != nil || !addr.Is6() {
+			return "", fmt.Errorf("invalid IPv6 address `%s`", str)
+		}
+		ip := addr.As16()
+		return s.searchIPv6(ip[:])
+	}
+
 	ip, err := CheckIP(str)
 	if err != nil {
 		return "", err
 	}
 
 	return s.Search(ip)
+}
+
+func (s *Searcher) searchIPv6(ip []byte) (string, error) {
+	s.ioCount = 0
+
+	idx := int(ip[0])*VectorIndexCols*VectorIndexSize + int(ip[1])*VectorIndexSize
+	var sPtr, ePtr uint32
+	if s.vectorIndex != nil {
+		sPtr = binary.LittleEndian.Uint32(s.vectorIndex[idx:])
+		ePtr = binary.LittleEndian.Uint32(s.vectorIndex[idx+4:])
+	} else if s.contentBuff != nil {
+		sPtr = binary.LittleEndian.Uint32(s.contentBuff[HeaderInfoLength+idx:])
+		ePtr = binary.LittleEndian.Uint32(s.contentBuff[HeaderInfoLength+idx+4:])
+	} else {
+		buff := make([]byte, VectorIndexSize)
+		if err := s.read(int64(HeaderInfoLength+idx), buff); err != nil {
+			return "", fmt.Errorf("read vector index block at %d: %w", HeaderInfoLength+idx, err)
+		}
+		sPtr = binary.LittleEndian.Uint32(buff)
+		ePtr = binary.LittleEndian.Uint32(buff[4:])
+	}
+
+	if sPtr == 0 || ePtr == 0 {
+		return "", nil
+	}
+
+	const segmentIndexSize = 38 // 16-byte start + 16-byte end + 2-byte length + 4-byte pointer
+	var dataLen int
+	var dataPtr uint32
+	buff := make([]byte, segmentIndexSize)
+	l, h := 0, int((ePtr-sPtr)/segmentIndexSize)
+	for l <= h {
+		m := (l + h) >> 1
+		p := sPtr + uint32(m*segmentIndexSize)
+		if err := s.read(int64(p), buff); err != nil {
+			return "", fmt.Errorf("read segment index at %d: %w", p, err)
+		}
+
+		if bytes.Compare(ip, buff[:16]) < 0 {
+			h = m - 1
+		} else if bytes.Compare(ip, buff[16:32]) > 0 {
+			l = m + 1
+		} else {
+			dataLen = int(binary.LittleEndian.Uint16(buff[32:]))
+			dataPtr = binary.LittleEndian.Uint32(buff[34:])
+			break
+		}
+	}
+
+	if dataLen == 0 {
+		return "", nil
+	}
+
+	regionBuff := make([]byte, dataLen)
+	if err := s.read(int64(dataPtr), regionBuff); err != nil {
+		return "", fmt.Errorf("read region at %d: %w", dataPtr, err)
+	}
+	return string(regionBuff), nil
 }
 
 // Search find the region for the specified long ip

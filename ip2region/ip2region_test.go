@@ -7,7 +7,8 @@ import (
 )
 
 func ExampleFind() {
-	fmt.Println(ip2region.Find("223.5.5.5"))
+	fmt.Println(ip2region.Find("119.29.29.29"))
+	fmt.Println(ip2region.Find("2001:4860:4860::8844"))
 	// Output:
-	// {中国 浙江 杭州  阿里巴巴anycast公共DNS}
+	// {美国    Google LLC}
 }
