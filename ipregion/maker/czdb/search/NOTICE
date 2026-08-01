@@ -1,0 +1,37 @@
+Third-Party Notices
+===================
+
+本目录（ipregion/maker/czdb/search）内含为制库目的本地化（vendor）的第三方代码。
+仅修改了 Go import 路径以便纳入本仓库；功能与上游对应版本保持一致。
+
+----------------------------------------------------------------------
+1. czdb-search-golang（子包 db/、utils/）
+
+  Upstream : https://github.com/tagphi/czdb-search-golang
+  Version  : v1.0.6
+  License  : Apache License 2.0（上游 README 声明）
+  Local    : search/db、search/utils
+  License file: LICENSE.czdb-search-golang
+
+----------------------------------------------------------------------
+2. msgpack（子包 msgpack/）
+
+  Upstream : https://github.com/vmihailenco/msgpack
+  Module   : github.com/vmihailenco/msgpack/v5
+  Version  : v5.3.5
+  License  : BSD-2-Clause
+  Local    : search/msgpack
+  License file: msgpack/LICENSE
+
+----------------------------------------------------------------------
+3. tagparser（子包 tagparser/）
+
+  Upstream : https://github.com/vmihailenco/tagparser
+  Module   : github.com/vmihailenco/tagparser/v2
+  Version  : v2.0.0
+  License  : BSD-2-Clause
+  Local    : search/tagparser
+  License file: tagparser/LICENSE
+
+----------------------------------------------------------------------
+上述组件各自版权归原作者所有。使用本仓库时请一并遵守对应许可证条款。

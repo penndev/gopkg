@@ -1,0 +1,2 @@
+# default WORK_DIR for: go run .
+/build/
