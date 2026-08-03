@@ -12,13 +12,13 @@
 | 方向 | 说明 | 检索 |
 |------|------|------|
 | IP → 地域 | 返回行政区划 + ISP | 有序段表二分 |
-| 地域 → IP 段 | 按城市等反查段列表 | Area 树 + 扫描段表 |
+| 地域 → IP 段 | 按地域 ID（含下级）反查 | Area 树 + 扫描 v4/v6 段表 |
 
 ## 包结构
 
 | 路径 | 用途 |
 |------|------|
-| `ipregion` | 查询：`Open` / `Find` / `FindRanges` |
+| `ipregion` | 查询：`Open` / `Find` / `Areas` / `FindRanges` |
 | `ipregion/db` | 格式、结构、编解码算法（无文件 I/O） |
 | `ipregion/maker` | 制库公共层与数据源 CLI |
 
@@ -32,7 +32,13 @@ if err != nil {
 defer s.Close()
 
 info, err := s.Find("8.8.8.8")
-ranges, err := s.FindRanges("中国-广东-深圳")
+
+// 地域树：parentID=0 为顶级，再按返回的 ID 继续取下级
+roots := s.Areas(0)
+children := s.Areas(roots[0].ID)
+
+// 按地域 ID 反查 IP 段（含全部下级）；v4/v6 分别开关
+ranges, err := s.FindRanges(roots[0].ID, true, true)
 ```
 
 制库请看 [`README.MAKER.MD`](README.MAKER.MD)。

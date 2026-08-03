@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gopkg 示例</title>
+  <style>
+    :root {
+      --bg: #e8eef4;
+      --ink: #1a2332;
+      --muted: #5a6a7a;
+      --accent: #0d6e6e;
+      --panel: #f7fafc;
+      --line: #c5d0db;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse 80% 50% at 10% 0%, #c8dde8 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 90% 100%, #d4e0d8 0%, transparent 50%),
+        var(--bg);
+    }
+
+    main {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 56px 20px 64px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.85rem;
+      letter-spacing: -0.02em;
+    }
+
+    .lead {
+      margin: 0 0 32px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    li + li { margin-top: 12px; }
+
+    a {
+      display: block;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    a:hover { border-color: var(--accent); }
+
+    a strong {
+      display: block;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    a span {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>gopkg</h1>
+    <p class="lead">包演示入口。在对应子目录挂载页面与 API 即可扩展。</p>
+    <ul>
+      <li>
+        <a href="/ipregion">
+          <strong>ipregion</strong>
+          <span>IP → 地域 / 地域 → IP 段</span>
+        </a>
+      </li>
+      <li>
+        <a href="/captcha">
+          <strong>captcha</strong>
+          <span>图文验证码 / 拼图验证码</span>
+        </a>
+      </li>
+    </ul>
+  </main>
+</body>
+
+</html>

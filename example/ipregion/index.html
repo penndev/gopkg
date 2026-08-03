@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ipregion · gopkg</title>
+  <style>
+    :root {
+      --bg: #e8eef4;
+      --ink: #1a2332;
+      --muted: #5a6a7a;
+      --accent: #0d6e6e;
+      --accent-hover: #0a5555;
+      --panel: #f7fafc;
+      --line: #c5d0db;
+      --ok: #1b5e3b;
+      --err: #8b2e2e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse 80% 50% at 10% 0%, #c8dde8 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 90% 100%, #d4e0d8 0%, transparent 50%),
+        var(--bg);
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 20px 64px;
+    }
+
+    .nav { margin-bottom: 20px; font-size: 0.9rem; }
+    .nav a { color: var(--accent); text-decoration: none; }
+
+    h1 { margin: 0 0 8px; font-size: 1.75rem; }
+    .lead { margin: 0 0 28px; color: var(--muted); font-size: 0.95rem; }
+
+    .meta {
+      margin-bottom: 28px;
+      padding: 12px 16px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    section {
+      margin-bottom: 28px;
+      padding: 22px 20px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    section h2 { margin: 0 0 14px; font-size: 1.05rem; }
+
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    input[type="text"],
+    select {
+      flex: 1;
+      min-width: 140px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      font-size: 1rem;
+      background: #fff;
+    }
+
+    button {
+      padding: 10px 18px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.ghost {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    .hint { margin: 8px 0 0; font-size: 0.8rem; color: var(--muted); }
+
+    pre {
+      margin: 14px 0 0;
+      padding: 14px;
+      max-height: 360px;
+      overflow: auto;
+      background: #1a2332;
+      color: #d8e2ec;
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .status { margin-top: 8px; min-height: 1.2em; font-size: 0.85rem; }
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--err); }
+  </style>
+</head>
+
+<body>
+  <main>
+    <p class="nav"><a href="/">← gopkg</a></p>
+    <h1>ipregion</h1>
+    <p class="lead">IP → 地域 / 按地域 ID 取下级与 IP 段。将 <code>ipregion.db</code> 放到本目录即可。</p>
+    <div class="meta" id="meta">加载中…</div>
+
+    <section>
+      <h2>IP → 地域</h2>
+      <div class="row">
+        <input id="ip" type="text" placeholder="8.8.8.8" value="8.8.8.8" />
+        <button type="button" id="btn-find">查询</button>
+        <button type="button" class="ghost" id="btn-me">用本机 IP</button>
+      </div>
+      <div class="status" id="find-status"></div>
+      <pre id="find-out">{}</pre>
+    </section>
+
+    <section>
+      <h2>地域 → IP 段</h2>
+      <p class="hint">多级下拉：选中后加载下级；反查用当前最深一级的 ID（含其全部下级）。</p>
+      <div class="row" id="area-selects" style="margin-top:10px;"></div>
+      <div class="row" style="margin-top:14px;">
+        <label><input type="checkbox" id="opt-v4" checked /> IPv4</label>
+        <label><input type="checkbox" id="opt-v6" checked /> IPv6</label>
+        <button type="button" id="btn-ranges">反查 IP 段</button>
+      </div>
+      <div class="status" id="ranges-status"></div>
+      <pre id="ranges-out">{}</pre>
+    </section>
+  </main>
+
+  <script>
+    const API = "/ipregion/api";
+    const $ = (id) => document.getElementById(id);
+    // 每一级已选的 { id, name }；下拉数量 = levels.length + 1（末尾可继续选下级）
+    const levels = [];
+
+    async function getJSON(url) {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      return data;
+    }
+
+    function show(pre, status, data, okMsg) {
+      pre.textContent = JSON.stringify(data, null, 2);
+      status.textContent = okMsg || "";
+      status.className = "status ok";
+    }
+
+    function fail(status, err) {
+      status.textContent = err.message || String(err);
+      status.className = "status err";
+    }
+
+    function selectedAreaID() {
+      return levels.length ? levels[levels.length - 1].id : 0;
+    }
+
+    async function loadMeta() {
+      try {
+        const m = await getJSON(API + "/meta");
+        $("meta").textContent =
+          `version=${m.Version}  areas=${m.Areas}  isps=${m.ISPs}  v4=${m.V4}  v6=${m.V6}`;
+      } catch (e) {
+        $("meta").textContent = "无法读取库信息: " + e.message;
+      }
+    }
+
+    async function doFind(useClient) {
+      const status = $("find-status");
+      try {
+        const ip = useClient ? "" : $("ip").value.trim();
+        const q = ip ? "?ip=" + encodeURIComponent(ip) : "";
+        const data = await getJSON(API + "/find" + q);
+        if (useClient && data.IP) $("ip").value = data.IP;
+        const name = data.Area && data.Area.Name ? data.Area.Name : "—";
+        const isp = data.ISP && data.ISP.Name ? data.ISP.Name : "—";
+        show($("find-out"), status, data, name + " / " + isp);
+      } catch (e) {
+        fail(status, e);
+      }
+    }
+
+    async function fillSelect(sel, parentID, selectedID) {
+      const areas = await getJSON(API + "/areas?parent_id=" + parentID);
+      sel.innerHTML = "";
+      const blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = parentID === 0 ? "请选择…" : "（本级即可 / 或继续）";
+      sel.appendChild(blank);
+      for (const a of areas) {
+        const opt = document.createElement("option");
+        opt.value = String(a.id);
+        opt.textContent = a.name;
+        opt.dataset.name = a.name;
+        if (selectedID && a.id === selectedID) opt.selected = true;
+        sel.appendChild(opt);
+      }
+      sel.hidden = areas.length === 0 && parentID !== 0;
+      return areas.length;
+    }
+
+    async function renderSelects() {
+      const box = $("area-selects");
+      box.innerHTML = "";
+      // 级联：第 i 级的 parent = levels[i-1].id，第 0 级 parent=0
+      const depth = levels.length + 1;
+      for (let i = 0; i < depth; i++) {
+        const parentID = i === 0 ? 0 : levels[i - 1].id;
+        const selected = levels[i] ? levels[i].id : 0;
+        const sel = document.createElement("select");
+        sel.dataset.level = String(i);
+        const n = await fillSelect(sel, parentID, selected);
+        if (n === 0 && i > 0) break;
+        sel.onchange = async () => {
+          const lv = Number(sel.dataset.level);
+          levels.length = lv;
+          if (sel.value) {
+            levels.push({ id: Number(sel.value), name: sel.selectedOptions[0].dataset.name || sel.selectedOptions[0].textContent });
+          }
+          await renderSelects();
+          const id = selectedAreaID();
+          if (id) {
+            $("ranges-status").textContent = "已选 #" + id + " " + levels.map((x) => x.name).join("-");
+            $("ranges-status").className = "status ok";
+          } else {
+            $("ranges-status").textContent = "";
+          }
+        };
+        box.appendChild(sel);
+      }
+    }
+
+    async function doRanges() {
+      const status = $("ranges-status");
+      const id = selectedAreaID();
+      if (!id) {
+        status.textContent = "请先选择地域";
+        status.className = "status err";
+        return;
+      }
+      try {
+        const v4 = $("opt-v4").checked ? "1" : "0";
+        const v6 = $("opt-v6").checked ? "1" : "0";
+        const data = await getJSON(
+          API + "/ranges?area_id=" + id + "&v4=" + v4 + "&v6=" + v6
+        );
+        show($("ranges-out"), status, data, "共 " + data.total + " 段，展示 " + (data.ranges || []).length + " 条");
+      } catch (e) {
+        fail(status, e);
+      }
+    }
+
+    $("btn-find").onclick = () => doFind(false);
+    $("btn-me").onclick = () => doFind(true);
+    $("btn-ranges").onclick = doRanges;
+
+    loadMeta();
+    doFind(false);
+    renderSelects();
+  </script>
+</body>
+
+</html>

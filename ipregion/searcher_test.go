@@ -48,11 +48,23 @@ func TestFindAndRangesRoundTrip(t *testing.T) {
 		t.Fatalf("meta=%+v", m)
 	}
 
+	roots := s.Areas(0)
+	if len(roots) != 1 || roots[0].Name != "中国" {
+		t.Fatalf("roots=%+v", roots)
+	}
+	children := s.Areas(1)
+	if len(children) != 2 {
+		t.Fatalf("china children=%+v", children)
+	}
+	if shenzhen := s.Areas(2); len(shenzhen) != 1 || shenzhen[0].Name != "深圳" {
+		t.Fatalf("guangdong children=%+v", shenzhen)
+	}
+
 	info, err := s.Find("1.0.0.10")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Path != "中国-广东-深圳" || info.ISP != "电信" {
+	if info.Area.Name != "深圳" || info.Area.Parent == nil || info.Area.Parent.Name != "广东" || info.ISP.Name != "电信" {
 		t.Fatalf("got %+v", info)
 	}
 
@@ -60,7 +72,7 @@ func TestFindAndRangesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Path != "中国-北京" || info.ISP != "联通" {
+	if info.Area.Name != "北京" || info.ISP.Name != "联通" {
 		t.Fatalf("got %+v", info)
 	}
 
@@ -68,21 +80,26 @@ func TestFindAndRangesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Path != "中国-广东-深圳" {
+	if info.Area.Name != "深圳" {
 		t.Fatalf("v6 got %+v", info)
 	}
 
-	ranges, err := s.FindRanges("中国-广东-深圳")
+	ranges, err := s.FindRanges(3, true, true)
 	if err != nil || len(ranges) < 2 {
-		t.Fatalf("ranges=%d err=%v", len(ranges), err)
+		t.Fatalf("shenzhen ranges=%d err=%v", len(ranges), err)
 	}
 
-	ranges, err = s.FindRanges("深圳")
-	if err != nil || len(ranges) == 0 {
-		t.Fatalf("by name: %v %d", err, len(ranges))
+	v4only, err := s.FindRanges(3, true, false)
+	if err != nil || len(v4only) == 0 {
+		t.Fatalf("v4only=%d err=%v", len(v4only), err)
+	}
+	for _, rg := range v4only {
+		if !rg.Start.Is4() {
+			t.Fatalf("expected v4 only: %v", rg.Start)
+		}
 	}
 
-	all, err := s.FindRanges("中国")
+	all, err := s.FindRanges(1, true, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +109,7 @@ func TestFindAndRangesRoundTrip(t *testing.T) {
 }
 
 func TestFindRealDB(t *testing.T) {
-	path := filepath.Join("..", "example", "ipregion", "maker", "tmp", db.FileDB)
+	path := filepath.Join("..", "example", "ipregion", "ipregion.db")
 	s, err := ipregion.Open(path)
 	if err != nil {
 		t.Skip("no real db:", err)
@@ -102,17 +119,21 @@ func TestFindRealDB(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("8.8.8.8 -> path=%s isp=%s", info.Path, info.ISP)
-	if info.Path == "" && info.ISP == "" && info.AreaID == 0 {
+	t.Logf("8.8.8.8 -> area=%s isp=%s", info.Area.Name, info.ISP.Name)
+	if info.Area.ID == 0 && info.ISP.ID == 0 {
 		t.Fatal("empty result")
 	}
 
-	ranges, err := s.FindRanges("中国")
+	roots := s.Areas(0)
+	if len(roots) == 0 {
+		t.Fatal("no root areas")
+	}
+	ranges, err := s.FindRanges(roots[0].ID, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("中国 ranges=%d meta=%+v", len(ranges), s.Meta())
+	t.Logf("%s v4 ranges=%d meta=%+v", roots[0].Name, len(ranges), s.Meta())
 	if len(ranges) == 0 {
-		t.Fatal("expected ranges for 中国")
+		t.Fatal("expected ranges for root")
 	}
 }
