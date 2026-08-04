@@ -4,10 +4,8 @@
 
 
 ---
-- **文字验证码** [运行使用示例](https://github.com/penndev/gopkg/blob/main/example/captcha/main.go)
-
-- [文字识别验证](https://github.com/penndev/gopkg/tree/main/captcha)
-- [拖拽拼图验证](https://github.com/penndev/gopkg/tree/main/captcha2)
+- **验证码** [在线演示](https://github.com/penndev/gopkg/tree/main/example)（`go run ./example` → `/captcha`）
+- [图文 NewText / 拼图 NewImg](https://github.com/penndev/gopkg/tree/main/captcha)
 ---
 - **ip地址库**
 - [纯真qqwry](https://github.com/penndev/gopkg/tree/main/qqwry) 纯真IP数据库qqwry.dat 已停止更新

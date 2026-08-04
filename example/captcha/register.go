@@ -7,17 +7,16 @@ import (
 	"strconv"
 
 	"github.com/penndev/gopkg/captcha"
-	"github.com/penndev/gopkg/captcha2"
 )
 
 //go:embed index.html
 var page embed.FS
 
-// Mount 注册页面与 API：/captcha、/captcha/text、/captcha/puzzle
+// Mount 注册页面与 API：/captcha、/captcha/text、/captcha/img
 func Mount(mux *http.ServeMux) {
 	mux.HandleFunc("/captcha", serveIndex)
 	mux.HandleFunc("/captcha/text", handleText)
-	mux.HandleFunc("/captcha/puzzle", handlePuzzle)
+	mux.HandleFunc("/captcha/img", handleImg)
 }
 
 func serveIndex(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +32,7 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 func handleText(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		v, err := captcha.NewImg()
+		v, err := captcha.NewText()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -44,8 +43,7 @@ func handleText(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Parse error: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		ok := captcha.Verify(r.FormValue("id"), r.FormValue("code"))
-		if ok {
+		if captcha.VerifyText(r.FormValue("id"), r.FormValue("code")) {
 			_, _ = w.Write([]byte("验证成功"))
 		} else {
 			_, _ = w.Write([]byte("验证失败"))
@@ -55,10 +53,10 @@ func handleText(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handlePuzzle(w http.ResponseWriter, r *http.Request) {
+func handleImg(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		v, err := captcha2.NewImg()
+		v, err := captcha.NewImg()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -72,8 +70,7 @@ func handlePuzzle(w http.ResponseWriter, r *http.Request) {
 		id := r.FormValue("id")
 		x, _ := strconv.Atoi(r.FormValue("x"))
 		y, _ := strconv.Atoi(r.FormValue("y"))
-		ok := captcha2.Verify(id, x*1000+y)
-		if ok {
+		if captcha.VerifyImg(id, x*1000+y) {
 			_, _ = w.Write([]byte("验证成功"))
 		} else {
 			_, _ = w.Write([]byte("验证失败"))

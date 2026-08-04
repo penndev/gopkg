@@ -127,7 +127,7 @@
   <main>
     <p class="nav"><a href="/">← gopkg</a></p>
     <h1>captcha</h1>
-    <p class="lead">图文验证码（captcha）与拼图验证码（captcha2）。</p>
+    <p class="lead">图文 <code>NewText</code> / 拼图 <code>NewImg</code>，同属 <code>captcha</code> 包。</p>
 
     <div class="panel">
       <h2>图文验证码</h2>
@@ -207,7 +207,7 @@
       captcha2Piece.style.left = "0px";
       captcha2Piece.style.top = "0px";
       formX = formY = 0;
-      fetch("/captcha/puzzle").then((res) => res.json()).then((body) => {
+      fetch("/captcha/img").then((res) => res.json()).then((body) => {
         formId = body.ID;
         captcha2Image.style.backgroundImage = `url('${body.ImageBase64}')`;
         captcha2Image.style.width = body.ImageWidth + "px";
@@ -224,7 +224,7 @@
       data.append("id", formId);
       data.append("x", formX);
       data.append("y", formY);
-      fetch("/captcha/puzzle", { method: "POST", body: data }).then((res) => res.text()).then((body) => {
+      fetch("/captcha/img", { method: "POST", body: data }).then((res) => res.text()).then((body) => {
         captcha2Text.textContent = body;
         loadPuzzle();
       });

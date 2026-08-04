@@ -24,9 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.24.x"
 
@@ -42,7 +42,7 @@ jobs:
         run: go run ./ipregion/maker/czdb
 
       # Artifact 最长约 90 天，不能永久；仅作本次运行临时下载
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ipregion-db
           path: ipregion.db
