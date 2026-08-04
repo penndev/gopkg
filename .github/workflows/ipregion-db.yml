@@ -1,0 +1,64 @@
+name: Build ipregion.db
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_geo:
+        description: "强制重导 geolist（FORCE_GEO）"
+        type: boolean
+        default: true
+      version:
+        description: "库 VERSION"
+        type: string
+        default: "1.0.0"
+      remark:
+        description: "Header REMARK（可选）"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+
+      - name: Build ipregion.db
+        env:
+          CZDB_KEY: ${{ secrets.CZDB_KEY }}
+          CZDB_FILE: ${{ secrets.CZDB_FILE }}
+          WORK_DIR: build
+          OUT_DB: ipregion.db
+          FORCE_GEO: ${{ inputs.force_geo }}
+          VERSION: ${{ inputs.version }}
+          REMARK: ${{ inputs.remark }}
+        run: go run ./ipregion/maker/czdb
+
+      # Artifact 最长约 90 天，不能永久；仅作本次运行临时下载
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ipregion-db
+          path: ipregion.db
+          if-no-files-found: error
+          retention-days: 7
+
+      # 固定 Release：每次覆盖同名资源，长期保留「最后一版」
+      - name: Publish latest release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=ipregion-db
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "ipregion.db" \
+              --notes "手动工作流生成的最新 ipregion.db（每次构建会覆盖此资源）。" \
+              --latest=false
+          fi
+          gh release upload "$TAG" ipregion.db --clobber

@@ -41,20 +41,12 @@ go run ./maker/czdb
 
 ### GitHub Actions
 
-```yaml
-- uses: actions/setup-go@v5
-  with:
-    go-version: '1.23'
-- name: Build ipregion.db
-  env:
-    CZDB_KEY: ${{ secrets.CZDB_KEY }}
-    CZDB_FILE: ${{ secrets.CZDB_FILE }}
-    WORK_DIR: build
-    OUT_DB: ipregion.db
-    FORCE_GEO: '1'
-  run: go run ./ipregion/maker/czdb
-- uses: actions/upload-artifact@v4
-  with:
-    name: ipregion-db
-    path: ipregion.db
-```
+仓库已配置手动工作流 [`.github/workflows/ipregion-db.yml`](../.github/workflows/ipregion-db.yml)：
+
+1. 在仓库 **Settings → Secrets and variables → Actions** 中配置：
+   - `CZDB_KEY`（必填）
+   - `CZDB_FILE`（可选，czdb zip 下载地址）
+2. 打开 **Actions → Build ipregion.db → Run workflow** 手动触发
+3. 下载方式：
+   - **长期 / 最后一版**：仓库 **Releases** 中标签 `ipregion-db` 的附件 `ipregion.db`（每次构建 `--clobber` 覆盖）
+   - **本次运行临时**：Actions 运行页 Artifacts（约 7 天，GitHub Artifact 无法永久保留）
