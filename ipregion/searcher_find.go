@@ -2,28 +2,8 @@ package ipregion
 
 import (
 	"bytes"
-	"fmt"
 	"net/netip"
 )
-
-func (s *Searcher) Find(ip string) (Info, error) {
-	addr, err := netip.ParseAddr(ip)
-	if err != nil {
-		return Info{}, fmt.Errorf("无效 IP: %w", err)
-	}
-	return s.FindAddr(addr.Unmap())
-}
-
-func (s *Searcher) FindAddr(addr netip.Addr) (Info, error) {
-	addr = addr.Unmap()
-	if addr.Is4() {
-		return s.findV4(addr)
-	}
-	if addr.Is6() {
-		return s.findV6(addr)
-	}
-	return Info{}, fmt.Errorf("不支持的地址: %s", addr)
-}
 
 func (s *Searcher) findV4(addr netip.Addr) (Info, error) {
 	b4 := addr.As4()

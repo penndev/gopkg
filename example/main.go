@@ -6,8 +6,10 @@ import (
 	"log"
 	"net/http"
 
+	acmeweb "github.com/penndev/gopkg/example/acme"
 	captchaweb "github.com/penndev/gopkg/example/captcha"
 	ipregionweb "github.com/penndev/gopkg/example/ipregion"
+	otpweb "github.com/penndev/gopkg/example/otp"
 )
 
 //go:embed index.html
@@ -36,6 +38,8 @@ func main() {
 
 	ipregionweb.Mount(mux)
 	captchaweb.Mount(mux)
+	otpweb.Mount(mux)
+	acmeweb.Mount(mux)
 
 	log.Printf("open http://%s/", *addr)
 	log.Fatal(http.ListenAndServe(*addr, mux))

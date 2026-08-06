@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>acme · gopkg</title>
+  <style>
+    :root {
+      --bg: #e8eef4;
+      --ink: #1a2332;
+      --muted: #5a6a7a;
+      --accent: #0d6e6e;
+      --panel: #f7fafc;
+      --line: #c5d0db;
+      --err: #8b2e2e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse 80% 50% at 10% 0%, #c8dde8 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 90% 100%, #d4e0d8 0%, transparent 50%),
+        var(--bg);
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 20px 64px;
+    }
+
+    .nav { margin-bottom: 20px; font-size: 0.9rem; }
+    .nav a { color: var(--accent); text-decoration: none; }
+
+    h1 { margin: 0 0 8px; font-size: 1.75rem; }
+    .lead { margin: 0 0 28px; color: var(--muted); font-size: 0.95rem; }
+
+    section {
+      margin-bottom: 20px;
+      padding: 22px 20px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    section h2 { margin: 0 0 14px; font-size: 1.05rem; color: var(--accent); }
+
+    label { display: block; margin: 0 0 6px; font-size: 0.85rem; color: var(--muted); }
+
+    input[type="text"],
+    input[type="email"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      font-size: 1rem;
+      margin-bottom: 12px;
+      background: #fff;
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      font-size: 0.9rem;
+    }
+
+    button {
+      padding: 10px 18px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .hint { margin: 8px 0 0; font-size: 0.8rem; color: var(--muted); }
+    .err { color: var(--err); font-size: 0.9rem; margin-top: 10px; }
+
+    .task {
+      border: 1px solid var(--line);
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+
+    .task .meta { font-size: 0.85rem; color: var(--muted); margin: 6px 0; }
+    .mono { font-family: ui-monospace, Consolas, monospace; word-break: break-all; font-size: 0.85rem; }
+
+    pre {
+      margin: 10px 0 0;
+      padding: 12px;
+      max-height: 240px;
+      overflow: auto;
+      background: #1a2332;
+      color: #d8e2ec;
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <div class="nav"><a href="/">← gopkg</a></div>
+    <h1>acme</h1>
+    <p class="lead">Let's Encrypt 证书申请演示。默认使用 <strong>Staging</strong>，避免正式环境限速。</p>
+
+    <section>
+      <h2>1. 下单并获取挑战</h2>
+      <label for="email">邮箱</label>
+      <input id="email" type="email" placeholder="you@example.com" />
+      <label for="domains">域名（逗号分隔，通配符用 *.example.com）</label>
+      <input id="domains" type="text" placeholder="example.com, *.example.com" />
+      <label class="check">
+        <input id="staging" type="checkbox" checked />
+        使用 Staging CA
+      </label>
+      <button type="button" id="btnAuth">获取验证任务</button>
+      <p class="hint">HTTP-01 需域名解析到本机且 80 端口可达；DNS-01 需添加 TXT 记录。通配符只能 DNS-01。</p>
+      <div class="err" id="authErr"></div>
+    </section>
+
+    <section id="tasksBox" hidden>
+      <h2>2. 完成验证后勾选并签发</h2>
+      <div id="tasks"></div>
+      <button type="button" id="btnCert">签发证书</button>
+      <div class="err" id="certErr"></div>
+    </section>
+
+    <section id="resultBox" hidden>
+      <h2>3. 证书结果</h2>
+      <p>域名：<span id="certDomains" class="mono"></span></p>
+      <p><strong>证书 PEM</strong></p>
+      <pre id="certPem"></pre>
+      <p><strong>私钥 PEM</strong></p>
+      <pre id="keyPem"></pre>
+    </section>
+  </main>
+
+  <script>
+    let sessionId = "";
+    const $ = (id) => document.getElementById(id);
+
+    $("btnAuth").onclick = async () => {
+      $("authErr").textContent = "";
+      $("resultBox").hidden = true;
+      const body = new URLSearchParams({
+        email: $("email").value.trim(),
+        domains: $("domains").value.trim(),
+        staging: $("staging").checked ? "1" : "0",
+      });
+      const res = await fetch("/acme/api/authorize", { method: "POST", body });
+      const data = await res.json();
+      if (data.error) {
+        $("authErr").textContent = data.error;
+        return;
+      }
+      sessionId = data.id;
+      const box = $("tasks");
+      box.innerHTML = "";
+      (data.tasks || []).forEach((t) => {
+        const el = document.createElement("div");
+        el.className = "task";
+        el.innerHTML =
+          '<label class="check"><input type="checkbox" value="' + t.index + '" /> ' +
+          t.type + " · " + t.domain + (t.wildcard ? "（通配符）" : "") +
+          "</label>" +
+          '<div class="meta">' + t.hint + "</div>" +
+          '<div class="mono">token: ' + t.token + "</div>" +
+          '<div class="mono">keyAuth: ' + t.keyAuth + "</div>";
+        box.appendChild(el);
+      });
+      $("tasksBox").hidden = false;
+    };
+
+    $("btnCert").onclick = async () => {
+      $("certErr").textContent = "";
+      const indexes = [...document.querySelectorAll("#tasks input[type=checkbox]:checked")]
+        .map((el) => el.value)
+        .join(",");
+      const body = new URLSearchParams({ id: sessionId, indexes });
+      const res = await fetch("/acme/api/cert", { method: "POST", body });
+      const data = await res.json();
+      if (data.error) {
+        $("certErr").textContent = data.error;
+        return;
+      }
+      $("certDomains").textContent = (data.domain || []).join(", ");
+      $("certPem").textContent = data.cert || "";
+      $("keyPem").textContent = data.key || "";
+      $("resultBox").hidden = false;
+    };
+  </script>
+</body>
+
+</html>

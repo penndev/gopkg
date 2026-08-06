@@ -15,7 +15,9 @@
       --line: #c5d0db;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
@@ -52,7 +54,9 @@
       padding: 0;
     }
 
-    li + li { margin-top: 12px; }
+    li+li {
+      margin-top: 12px;
+    }
 
     a {
       display: block;
@@ -63,7 +67,9 @@
       text-decoration: none;
     }
 
-    a:hover { border-color: var(--accent); }
+    a:hover {
+      border-color: var(--accent);
+    }
 
     a strong {
       display: block;
@@ -84,15 +90,27 @@
     <p class="lead">包演示入口。在对应子目录挂载页面与 API 即可扩展。</p>
     <ul>
       <li>
+        <a href="/captcha">
+          <strong>captcha</strong>
+          <span>图文 NewText / 拖动 NewDrag</span>
+        </a>
+      </li>
+      <li>
         <a href="/ipregion">
           <strong>ipregion</strong>
           <span>IP → 地域 / 地域 → IP 段</span>
         </a>
       </li>
       <li>
-        <a href="/captcha">
-          <strong>captcha</strong>
-          <span>图文验证码 / 拼图验证码</span>
+        <a href="/otp">
+          <strong>otp</strong>
+          <span>TOTP 两步验证</span>
+        </a>
+      </li>
+      <li>
+        <a href="/acme">
+          <strong>acme</strong>
+          <span>Let's Encrypt 证书申请</span>
         </a>
       </li>
     </ul>

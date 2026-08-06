@@ -2,56 +2,6 @@ package ipregion
 
 import "net/netip"
 
-// FindRanges 按地域 ID 反查 IP 段：先收集该节点及全部下级 ID，再扫描段表。
-// v4 / v6 分别控制是否扫描 IPv4 / IPv6。
-func (s *Searcher) FindRanges(areaID uint32, v4, v6 bool) ([]Range, error) {
-	if !v4 && !v6 {
-		return nil, nil
-	}
-	if areaID != 0 {
-		if _, ok := s.areaByID[areaID]; !ok {
-			return nil, nil
-		}
-	}
-
-	idSet := map[uint32]struct{}{}
-	if areaID == 0 {
-		for id := range s.areaByID {
-			idSet[id] = struct{}{}
-		}
-	} else {
-		idSet[areaID] = struct{}{}
-		stack := []uint32{areaID}
-		for len(stack) > 0 {
-			id := stack[len(stack)-1]
-			stack = stack[:len(stack)-1]
-			for _, child := range s.areasByParent[id] {
-				if _, ok := idSet[child.ID]; ok {
-					continue
-				}
-				idSet[child.ID] = struct{}{}
-				stack = append(stack, child.ID)
-			}
-		}
-	}
-
-	var out []Range
-	var err error
-	if v4 {
-		out, err = s.scanRangesV4(idSet, out)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if v6 {
-		out, err = s.scanRangesV6(idSet, out)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
-}
-
 func (s *Searcher) scanRangesV4(idSet map[uint32]struct{}, out []Range) ([]Range, error) {
 	for i := 0; i < s.idx.V4Count; {
 		n := 4096

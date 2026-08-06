@@ -6,8 +6,23 @@ import (
 	"github.com/penndev/gopkg/ttlmap"
 )
 
-// Store 默认单机存储；集群请自行替换。
-var Store ttlmap.Map = *ttlmap.New()
+type ttlStore struct {
+	m *ttlmap.Map
+}
 
-// StoreAlive 验证码默认存活时间。
-var StoreAlive = 5 * time.Minute
+// NewTTLStore 基于 ttlmap 的单机存储。
+func NewTTLStore() Storage {
+	return &ttlStore{m: ttlmap.New()}
+}
+
+func (s *ttlStore) Set(id string, value any, ttl time.Duration) {
+	s.m.Set(id, value, ttl)
+}
+
+func (s *ttlStore) Get(id string) (any, bool) {
+	return s.m.Get(id)
+}
+
+func (s *ttlStore) Delete(id string) {
+	s.m.Delete(id)
+}
