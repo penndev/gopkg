@@ -1,8 +1,9 @@
 # GOPKG
 
-> 一些常用的 Go 开发库
+> 一些常用的 Go 库，避免代码的重复。
 
-WEB演示：`go run ./example` → [http://127.0.0.1:8080/](http://127.0.0.1:8080/)
+
+**web示例** (captcha / ipregion / otp / acme)：`go run ./example`
 
 - [captcha](captcha) 图文 / 拖动验证码 · [示例](example/captcha)
 - [ipregion](ipregion) IPv4/IPv6 地域库 · [示例](example/ipregion)
@@ -11,3 +12,6 @@ WEB演示：`go run ./example` → [http://127.0.0.1:8080/](http://127.0.0.1:808
 - [otp](otp) TOTP 两步验证 · [示例](example/otp)
 - [socks5](socks5) SOCKS5 代理 · [示例](example/socks5)
 - [util](util) 通用小工具 · [示例](util/README.MD)
+
+
+

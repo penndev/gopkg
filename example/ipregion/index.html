@@ -52,6 +52,17 @@
       color: var(--muted);
     }
 
+    .meta.warn {
+      border-color: #c9a227;
+      background: #fff8e7;
+      color: var(--ink);
+      line-height: 1.55;
+    }
+
+    .meta.warn a { color: var(--accent); }
+    .meta.warn ol { margin: 8px 0 0; padding-left: 1.25em; }
+    .meta.warn li { margin: 4px 0; }
+
     section {
       margin-bottom: 28px;
       padding: 22px 20px;
@@ -112,7 +123,7 @@
   <main>
     <p class="nav"><a href="/">← gopkg</a></p>
     <h1>ipregion</h1>
-    <p class="lead">IP → 地域 / 按地域 ID 取下级与 IP 段。将 <code>ipregion.db</code> 放到本目录即可。</p>
+    <p class="lead">IP → 地域 / 按地域 ID 取下级与 IP 段。需要本地 <code>ipregion.db</code>。</p>
     <div class="meta" id="meta">加载中…</div>
 
     <section>
@@ -169,12 +180,31 @@
     }
 
     async function loadMeta() {
+      const box = $("meta");
       try {
-        const m = await getJSON(API + "/meta");
-        $("meta").textContent =
+        const res = await fetch(API + "/status");
+        const data = await res.json();
+        if (!data.loaded) {
+          box.className = "meta warn";
+          const how = (data.how || []).map((s) => "<li>" + s + "</li>").join("");
+          box.innerHTML =
+            "<strong>未加载 ipregion.db</strong>" +
+            "<ol>" + how + "</ol>" +
+            "<p style=\"margin:10px 0 0\">" +
+            "下载：<a href=\"" + (data.download || data.release) + "\" target=\"_blank\" rel=\"noopener\">Releases · ipregion-db</a>" +
+            " &nbsp;·&nbsp; " +
+            "制库：<a href=\"" + (data.maker || "#") + "\" target=\"_blank\" rel=\"noopener\">README.MAKER.MD</a>" +
+            "</p>" +
+            "<p class=\"hint\" style=\"margin:8px 0 0\">建议路径：<code>example/ipregion/ipregion.db</code>，或启动参数 <code>-db</code>。</p>";
+          return;
+        }
+        const m = data.meta || {};
+        box.className = "meta";
+        box.textContent =
           `version=${m.Version}  areas=${m.Areas}  isps=${m.ISPs}  v4=${m.V4}  v6=${m.V6}`;
       } catch (e) {
-        $("meta").textContent = "无法读取库信息: " + e.message;
+        box.className = "meta warn";
+        box.textContent = "无法读取库状态: " + (e.message || e);
       }
     }
 
