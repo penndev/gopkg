@@ -60,6 +60,18 @@ func TestFindAndRangesRoundTrip(t *testing.T) {
 		t.Fatalf("guangdong children=%+v", shenzhen)
 	}
 
+	area, ok := s.Area(3)
+	if !ok || area.Name != "深圳" || area.Parent == nil || area.Parent.Name != "广东" ||
+		area.Parent.Parent == nil || area.Parent.Parent.Name != "中国" {
+		t.Fatalf("area=%+v ok=%v", area, ok)
+	}
+	if _, ok := s.Area(0); ok {
+		t.Fatal("id=0 should be missing")
+	}
+	if _, ok := s.Area(999); ok {
+		t.Fatal("expected missing area")
+	}
+
 	info, err := s.Find("1.0.0.10")
 	if err != nil {
 		t.Fatal(err)

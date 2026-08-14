@@ -41,6 +41,18 @@ func (s *Searcher) Meta() Meta {
 	}
 }
 
+// Area 按 ID 返回该地域的全部信息（含上级链 Parent）。
+// ID 不存在时返回零值且 ok=false。
+func (s *Searcher) Area(id uint32) (Area, bool) {
+	if id == 0 {
+		return Area{}, false
+	}
+	if _, ok := s.areaByID[id]; !ok {
+		return Area{}, false
+	}
+	return s.buildArea(id), true
+}
+
 // Areas 返回 parentID 的直接下级；parentID=0 为顶级地域。
 func (s *Searcher) Areas(parentID uint32) []db.Area {
 	src := s.areasByParent[parentID]
