@@ -21,6 +21,16 @@ func ExportFromGeoLists(workDir string) error {
 	}
 
 	d := newDict()
+	for _, name := range []string{GeoListV4, GeoListV6} {
+		if err := forEachGeo(filepath.Join(workDir, name), func(_, geo string) error {
+			d.learn(geo)
+			return nil
+		}); err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+	}
+	d.dropConcatChildren()
+
 	v4, err := ingestGeoList(filepath.Join(workDir, GeoListV4), d, db.NewSegmentV4)
 	if err != nil {
 		return fmt.Errorf("%s: %w", GeoListV4, err)
@@ -61,16 +71,32 @@ func ingestGeoList[T any](
 	d *dict,
 	newSeg func(ip netip.Addr, areaID, ispID uint32) (T, error),
 ) ([]T, error) {
+	var segs []T
+	err := forEachGeo(path, func(start, geo string) error {
+		ip, err := netip.ParseAddr(start)
+		if err != nil {
+			return fmt.Errorf("start IP: %w", err)
+		}
+		areaID, ispID := d.resolve(geo)
+		seg, err := newSeg(ip, areaID, ispID)
+		if err != nil {
+			return err
+		}
+		segs = append(segs, seg)
+		return nil
+	})
+	return segs, err
+}
+
+func forEachGeo(path string, fn func(start, geo string) error) error {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer f.Close()
 
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-
-	var segs []T
 	lineNo := 0
 	for sc.Scan() {
 		lineNo++
@@ -80,18 +106,11 @@ func ingestGeoList[T any](
 		}
 		ps := strings.SplitN(line, "|", 3)
 		if len(ps) != 3 {
-			return nil, fmt.Errorf("第 %d 行格式错误: %s", lineNo, line)
+			return fmt.Errorf("第 %d 行格式错误: %s", lineNo, line)
 		}
-		ip, err := netip.ParseAddr(ps[0])
-		if err != nil {
-			return nil, fmt.Errorf("第 %d 行 start IP: %w", lineNo, err)
+		if err := fn(ps[0], ps[2]); err != nil {
+			return fmt.Errorf("第 %d 行: %w", lineNo, err)
 		}
-		areaID, ispID := d.resolve(ps[2])
-		seg, err := newSeg(ip, areaID, ispID)
-		if err != nil {
-			return nil, fmt.Errorf("第 %d 行: %w", lineNo, err)
-		}
-		segs = append(segs, seg)
 	}
-	return segs, sc.Err()
+	return sc.Err()
 }

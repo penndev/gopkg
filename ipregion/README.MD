@@ -14,13 +14,15 @@
 |------|------|------|
 | IP → 地域 | 返回行政区划 + ISP | 有序段表二分 |
 | 地域 ID → 地域 | 返回该节点及上级链 | Area 字典 |
+| 运营商名称 / ID | 子串搜索或按 ID 取 ISP | ISP 字典 |
 | 地域 → IP 段 | 按地域 ID（含下级）反查 | Area 树 + 扫描 v4/v6 段表 |
+| 运营商 → IP 段 | 按 ISP ID 反查 | 扫描 v4/v6 段表 |
 
 ## 包结构
 
 | 路径 | 用途 |
 |------|------|
-| `ipregion` | 查询：`Open` / `Find` / `FindAddr` / `Area` / `Areas` / `FindRanges` / `Meta` |
+| `ipregion` | 查询：`Open` / `Find` / `FindAddr` / `Area` / `Areas` / `ISP` / `ISPs` / `SearchISPs` / `FindRanges` / `FindISPRanges` / `Meta` |
 | `ipregion/db` | 格式、结构、编解码算法（无文件 I/O） |
 | `ipregion/maker` | 制库公共层与数据源 CLI |
 
@@ -78,6 +80,23 @@ func main() {
 	fmt.Printf("%+v\n", roots)
 	if len(roots) > 0 {
 		fmt.Printf("%+v\n", s.Areas(roots[0].ID))
+	}
+
+	// 运营商：全部列表、按名称搜索，或按 ID 取
+	fmt.Printf("isps=%d\n", len(s.ISPs()))
+	isps := s.SearchISPs("电信")
+	fmt.Printf("%+v\n", isps)
+	if len(isps) > 0 {
+		isp, ok := s.ISP(isps[0].ID)
+		if !ok {
+			log.Fatal("isp not found")
+		}
+		fmt.Printf("%+v\n", isp)
+		ispRanges, err := s.FindISPRanges(isp.ID, true, false)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("isp ranges=%d\n", len(ispRanges))
 	}
 
 	// 按地域 ID 反查 IP 段（含全部下级）；v4 / v6 分别开关

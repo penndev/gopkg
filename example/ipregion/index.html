@@ -32,7 +32,7 @@
     }
 
     main {
-      max-width: 720px;
+      max-width: 760px;
       margin: 0 auto;
       padding: 48px 20px 64px;
     }
@@ -41,10 +41,12 @@
     .nav a { color: var(--accent); text-decoration: none; }
 
     h1 { margin: 0 0 8px; font-size: 1.75rem; }
-    .lead { margin: 0 0 28px; color: var(--muted); font-size: 0.95rem; }
+    .lead { margin: 0 0 20px; color: var(--muted); font-size: 0.95rem; line-height: 1.55; }
+
+    a { color: var(--accent); }
 
     .meta {
-      margin-bottom: 28px;
+      margin-bottom: 20px;
       padding: 12px 16px;
       border: 1px solid var(--line);
       background: var(--panel);
@@ -64,13 +66,28 @@
     .meta.warn li { margin: 4px 0; }
 
     section {
-      margin-bottom: 28px;
+      margin-bottom: 22px;
       padding: 22px 20px;
       border: 1px solid var(--line);
       background: var(--panel);
     }
 
-    section h2 { margin: 0 0 14px; font-size: 1.05rem; }
+    section h2 { margin: 0 0 6px; font-size: 1.05rem; color: var(--accent); }
+    .api { margin: 0 0 12px; font-size: 0.8rem; color: var(--muted); font-family: ui-monospace, Consolas, monospace; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin: 10px 0 0;
+    }
+    th, td {
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; }
 
     .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
@@ -99,7 +116,7 @@
       border: 1px solid var(--accent);
     }
 
-    .hint { margin: 8px 0 0; font-size: 0.8rem; color: var(--muted); }
+    .hint { margin: 8px 0 0; font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
 
     pre {
       margin: 14px 0 0;
@@ -116,6 +133,17 @@
     .status { margin-top: 8px; min-height: 1.2em; font-size: 0.85rem; }
     .status.ok { color: var(--ok); }
     .status.err { color: var(--err); }
+
+    .range-table-wrap {
+      margin-top: 14px;
+      max-height: 420px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+    .range-table-wrap table { margin: 0; }
+    .range-table-wrap th { position: sticky; top: 0; background: #eef3f7; }
+    select.wide { min-width: 220px; }
   </style>
 </head>
 
@@ -123,11 +151,90 @@
   <main>
     <p class="nav"><a href="/">← gopkg</a></p>
     <h1>ipregion</h1>
-    <p class="lead">IP → 地域 / 按地域 ID 取下级与 IP 段。需要本地 <code>ipregion.db</code>。</p>
+    <p class="lead">
+      替换 czdb / qqwry 的 IP 地域库：一份 <code>ipregion.db</code> 覆盖 IPv4 / IPv6。
+      查询前需准备该文件（约定名，常量 <code>db.FileDB</code>）。
+    </p>
     <div class="meta" id="meta">加载中…</div>
 
     <section>
-      <h2>IP → 地域</h2>
+      <h2>介绍</h2>
+      <p class="hint" style="margin-top:0">
+        获取 <code>ipregion.db</code>：
+        <a href="https://github.com/penndev/gopkg/releases/tag/ipregion-db" target="_blank" rel="noopener">Releases · ipregion-db</a>
+        下载现成库，或按
+        <a href="https://github.com/penndev/gopkg/blob/main/ipregion/README.MAKER.MD" target="_blank" rel="noopener">制库文档</a>
+        用 <code>maker/czdb</code> 自行生成。建议放到 <code>example/ipregion/ipregion.db</code>，或启动参数 <code>-db</code>。
+      </p>
+      <table>
+        <thead>
+          <tr><th>方向</th><th>Go</th><th>HTTP</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>打开库 / 摘要</td>
+            <td><code>Open</code> / <code>Meta</code></td>
+            <td><code>GET /ipregion/api/meta</code></td>
+          </tr>
+          <tr>
+            <td>IP → 地域 + ISP</td>
+            <td><code>Find</code> / <code>FindAddr</code></td>
+            <td><code>GET /ipregion/api/find?ip=</code></td>
+          </tr>
+          <tr>
+            <td>地域 ID → 全部信息（含上级链）</td>
+            <td><code>Area</code></td>
+            <td><code>GET /ipregion/api/area?id=</code></td>
+          </tr>
+          <tr>
+            <td>取直接下级（parent_id=0 为顶级）</td>
+            <td><code>Areas</code></td>
+            <td><code>GET /ipregion/api/areas?parent_id=</code></td>
+          </tr>
+          <tr>
+            <td>运营商 ID → 名称</td>
+            <td><code>ISP</code></td>
+            <td><code>GET /ipregion/api/isp?id=</code></td>
+          </tr>
+          <tr>
+            <td>运营商列表 / 名称搜索</td>
+            <td><code>ISPs</code> / <code>SearchISPs</code></td>
+            <td><code>GET /ipregion/api/isps</code> · <code>?q=</code></td>
+          </tr>
+          <tr>
+            <td>地域 → IP 段（含全部下级）</td>
+            <td><code>FindRanges</code></td>
+            <td><code>GET /ipregion/api/ranges?area_id=&amp;v4=&amp;v6=</code></td>
+          </tr>
+          <tr>
+            <td>运营商 → IP 段</td>
+            <td><code>FindISPRanges</code></td>
+            <td><code>GET /ipregion/api/isp-ranges?isp_id=&amp;v4=&amp;v6=</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="hint">
+        <code>Find</code> / <code>Area</code> 的 <code>Area</code> 带 <code>Parent</code> 上级链；
+        <code>Areas</code> 返回字典节点（<code>id</code> / <code>parent_id</code> / <code>name</code>）。
+        <code>FindAddr</code> 仅 Go 侧使用（已解析的 <code>netip.Addr</code>）。
+      </p>
+    </section>
+
+    <section>
+      <h2>Meta</h2>
+      <p class="api">Open("ipregion.db") → Meta()</p>
+      <p class="hint">库摘要：版本、备注、地域/ISP 数、IPv4/IPv6 段数。</p>
+      <div class="row" style="margin-top:10px;">
+        <button type="button" id="btn-meta">刷新</button>
+      </div>
+      <div class="status" id="meta-status"></div>
+      <pre id="meta-out">{}</pre>
+    </section>
+
+    <section>
+      <h2>Find</h2>
+      <p class="api">Find(ip) / FindAddr(addr)</p>
+      <p class="hint">IPv4 / IPv6 同一接口，返回行政区划（含上级链）和 ISP。留空 IP 时用本机地址。</p>
       <div class="row">
         <input id="ip" type="text" placeholder="8.8.8.8" value="8.8.8.8" />
         <button type="button" id="btn-find">查询</button>
@@ -138,24 +245,55 @@
     </section>
 
     <section>
-      <h2>地域 → IP 段</h2>
-      <p class="hint">多级下拉：选中后加载下级；反查用当前最深一级的 ID（含其全部下级）。</p>
-      <div class="row" id="area-selects" style="margin-top:10px;"></div>
-      <div class="row" style="margin-top:14px;">
+      <h2>地域</h2>
+      <p class="api">Areas(parentID) → FindRanges(areaID)</p>
+      <p class="hint">级联下拉选择地域（含下级），再反查该节点的全部 IP 段。</p>
+      <div class="row" id="area-selects"></div>
+      <div class="row" style="margin-top:10px;">
         <label><input type="checkbox" id="opt-v4" checked /> IPv4</label>
         <label><input type="checkbox" id="opt-v6" checked /> IPv6</label>
         <button type="button" id="btn-ranges">反查 IP 段</button>
       </div>
       <div class="status" id="ranges-status"></div>
-      <pre id="ranges-out">{}</pre>
+      <div class="range-table-wrap" id="ranges-table-wrap" hidden>
+        <table>
+          <thead><tr><th>Start</th><th>End</th><th>地域</th><th>ISP</th></tr></thead>
+          <tbody id="ranges-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>运营商</h2>
+      <p class="api">ISPs() → FindISPRanges(ispID)</p>
+      <p class="hint">下拉为全部运营商；可先筛选名称，选中后反查该 ISP 的全部 IP 段。</p>
+      <div class="row">
+        <input id="isp-q" type="text" placeholder="筛选名称，如 电信" />
+        <select id="isp-select" class="wide">
+          <option value="">加载中…</option>
+        </select>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <label><input type="checkbox" id="opt-isp-v4" checked /> IPv4</label>
+        <label><input type="checkbox" id="opt-isp-v6" checked /> IPv6</label>
+        <button type="button" id="btn-isp-ranges">反查 IP 段</button>
+      </div>
+      <div class="status" id="isp-status"></div>
+      <div class="range-table-wrap" id="isp-ranges-table-wrap" hidden>
+        <table>
+          <thead><tr><th>Start</th><th>End</th><th>地域</th><th>ISP</th></tr></thead>
+          <tbody id="isp-ranges-tbody"></tbody>
+        </table>
+      </div>
     </section>
   </main>
 
   <script>
     const API = "/ipregion/api";
     const $ = (id) => document.getElementById(id);
-    // 每一级已选的 { id, name }；下拉数量 = levels.length + 1（末尾可继续选下级）
+    const SHOW_MAX = 5000;
     const levels = [];
+    let allISPs = [];
 
     async function getJSON(url) {
       const res = await fetch(url);
@@ -165,7 +303,7 @@
     }
 
     function show(pre, status, data, okMsg) {
-      pre.textContent = JSON.stringify(data, null, 2);
+      if (pre) pre.textContent = JSON.stringify(data, null, 2);
       status.textContent = okMsg || "";
       status.className = "status ok";
     }
@@ -179,7 +317,50 @@
       return levels.length ? levels[levels.length - 1].id : 0;
     }
 
-    async function loadMeta() {
+    function areaPath(area) {
+      const names = [];
+      let a = area;
+      while (a && (a.Name || a.name)) {
+        names.unshift(a.Name || a.name);
+        a = a.Parent || a.parent;
+      }
+      return names.join("-");
+    }
+
+    function levelsFromArea(area) {
+      const out = [];
+      let a = area;
+      while (a && a.ID) {
+        out.unshift({ id: a.ID, name: a.Name });
+        a = a.Parent;
+      }
+      return out;
+    }
+
+    function renderRangeTable(tbodyId, wrapId, ranges, total) {
+      const tbody = $(tbodyId);
+      const wrap = $(wrapId);
+      tbody.innerHTML = "";
+      const rows = ranges || [];
+      const shown = rows.length > SHOW_MAX ? rows.slice(0, SHOW_MAX) : rows;
+      const frag = document.createDocumentFragment();
+      for (const rg of shown) {
+        const tr = document.createElement("tr");
+        const area = rg.Area || {};
+        const isp = rg.ISP || {};
+        tr.innerHTML =
+          "<td>" + (rg.Start || "") + "</td>" +
+          "<td>" + (rg.End || "") + "</td>" +
+          "<td>" + (area.name || area.Name || "") + "</td>" +
+          "<td>" + (isp.name || isp.Name || "") + "</td>";
+        frag.appendChild(tr);
+      }
+      tbody.appendChild(frag);
+      wrap.hidden = shown.length === 0;
+      return shown.length;
+    }
+
+    async function loadStatus() {
       const box = $("meta");
       try {
         const res = await fetch(API + "/status");
@@ -194,17 +375,28 @@
             "下载：<a href=\"" + (data.download || data.release) + "\" target=\"_blank\" rel=\"noopener\">Releases · ipregion-db</a>" +
             " &nbsp;·&nbsp; " +
             "制库：<a href=\"" + (data.maker || "#") + "\" target=\"_blank\" rel=\"noopener\">README.MAKER.MD</a>" +
-            "</p>" +
-            "<p class=\"hint\" style=\"margin:8px 0 0\">建议路径：<code>example/ipregion/ipregion.db</code>，或启动参数 <code>-db</code>。</p>";
-          return;
+            "</p>";
+          return false;
         }
         const m = data.meta || {};
         box.className = "meta";
         box.textContent =
-          `version=${m.Version}  areas=${m.Areas}  isps=${m.ISPs}  v4=${m.V4}  v6=${m.V6}`;
+          `已加载  version=${m.Version}  areas=${m.Areas}  isps=${m.ISPs}  v4=${m.V4}  v6=${m.V6}`;
+        return true;
       } catch (e) {
         box.className = "meta warn";
         box.textContent = "无法读取库状态: " + (e.message || e);
+        return false;
+      }
+    }
+
+    async function doMeta() {
+      const status = $("meta-status");
+      try {
+        const data = await getJSON(API + "/meta");
+        show($("meta-out"), status, data);
+      } catch (e) {
+        fail(status, e);
       }
     }
 
@@ -215,9 +407,16 @@
         const q = ip ? "?ip=" + encodeURIComponent(ip) : "";
         const data = await getJSON(API + "/find" + q);
         if (useClient && data.IP) $("ip").value = data.IP;
-        const name = data.Area && data.Area.Name ? data.Area.Name : "—";
-        const isp = data.ISP && data.ISP.Name ? data.ISP.Name : "—";
-        show($("find-out"), status, data, name + " / " + isp);
+        show($("find-out"), status, data, areaPath(data.Area) + (data.ISP && data.ISP.name ? " · " + data.ISP.name : ""));
+        if (data.Area && data.Area.ID) {
+          levels.length = 0;
+          levels.push(...levelsFromArea(data.Area));
+          await renderSelects();
+        }
+        if (data.ISP && data.ISP.id) {
+          $("isp-q").value = data.ISP.name || "";
+          renderISPSelect($("isp-q").value, data.ISP.id);
+        }
       } catch (e) {
         fail(status, e);
       }
@@ -228,7 +427,7 @@
       sel.innerHTML = "";
       const blank = document.createElement("option");
       blank.value = "";
-      blank.textContent = parentID === 0 ? "请选择…" : "（本级即可 / 或继续）";
+      blank.textContent = parentID === 0 ? "请选择国家/地区…" : "（本级即可 / 或继续）";
       sel.appendChild(blank);
       for (const a of areas) {
         const opt = document.createElement("option");
@@ -245,12 +444,12 @@
     async function renderSelects() {
       const box = $("area-selects");
       box.innerHTML = "";
-      // 级联：第 i 级的 parent = levels[i-1].id，第 0 级 parent=0
       const depth = levels.length + 1;
       for (let i = 0; i < depth; i++) {
         const parentID = i === 0 ? 0 : levels[i - 1].id;
         const selected = levels[i] ? levels[i].id : 0;
         const sel = document.createElement("select");
+        sel.className = "wide";
         sel.dataset.level = String(i);
         const n = await fillSelect(sel, parentID, selected);
         if (n === 0 && i > 0) break;
@@ -258,16 +457,13 @@
           const lv = Number(sel.dataset.level);
           levels.length = lv;
           if (sel.value) {
-            levels.push({ id: Number(sel.value), name: sel.selectedOptions[0].dataset.name || sel.selectedOptions[0].textContent });
+            levels.push({
+              id: Number(sel.value),
+              name: sel.selectedOptions[0].dataset.name || sel.selectedOptions[0].textContent
+            });
           }
           await renderSelects();
-          const id = selectedAreaID();
-          if (id) {
-            $("ranges-status").textContent = "已选 #" + id + " " + levels.map((x) => x.name).join("-");
-            $("ranges-status").className = "status ok";
-          } else {
-            $("ranges-status").textContent = "";
-          }
+          if (selectedAreaID()) doRanges();
         };
         box.appendChild(sel);
       }
@@ -277,7 +473,7 @@
       const status = $("ranges-status");
       const id = selectedAreaID();
       if (!id) {
-        status.textContent = "请先选择地域";
+        status.textContent = "请先在下拉框选择地域";
         status.className = "status err";
         return;
       }
@@ -285,21 +481,98 @@
         const v4 = $("opt-v4").checked ? "1" : "0";
         const v6 = $("opt-v6").checked ? "1" : "0";
         const data = await getJSON(
-          API + "/ranges?area_id=" + id + "&v4=" + v4 + "&v6=" + v6
+          API + "/ranges?area_id=" + encodeURIComponent(id) + "&v4=" + v4 + "&v6=" + v6 + "&limit=0"
         );
-        show($("ranges-out"), status, data, "共 " + data.total + " 段，展示 " + (data.ranges || []).length + " 条");
+        const shown = renderRangeTable("ranges-tbody", "ranges-table-wrap", data.ranges, data.total);
+        const path = levels.map((x) => x.name).join("-");
+        let msg = "#" + id + " " + path + "  共 " + data.total + " 段";
+        if (shown < data.total) msg += "，表格展示前 " + shown + " 条";
+        status.textContent = msg;
+        status.className = "status ok";
       } catch (e) {
         fail(status, e);
       }
     }
 
+    function renderISPSelect(filter, selectedID) {
+      const sel = $("isp-select");
+      const q = (filter || "").trim().toLowerCase();
+      const keep = selectedID != null ? String(selectedID) : sel.value;
+      sel.innerHTML = "";
+      const blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = q ? "筛选结果…" : "请选择运营商…";
+      sel.appendChild(blank);
+      const frag = document.createDocumentFragment();
+      let n = 0;
+      for (const isp of allISPs) {
+        if (q && !(isp.name || "").toLowerCase().includes(q)) continue;
+        const opt = document.createElement("option");
+        opt.value = String(isp.id);
+        opt.textContent = isp.name;
+        if (keep && String(isp.id) === keep) opt.selected = true;
+        frag.appendChild(opt);
+        n++;
+      }
+      sel.appendChild(frag);
+      if (!sel.value && keep) sel.value = keep;
+      $("isp-status").textContent = "运营商 " + n + " / " + allISPs.length;
+      $("isp-status").className = "status ok";
+    }
+
+    async function loadISPs() {
+      const data = await getJSON(API + "/isps");
+      allISPs = data.isps || [];
+      renderISPSelect("", "");
+    }
+
+    async function doISPRanges() {
+      const status = $("isp-status");
+      const id = $("isp-select").value;
+      if (!id) {
+        status.textContent = "请先在下拉框选择运营商";
+        status.className = "status err";
+        return;
+      }
+      try {
+        const v4 = $("opt-isp-v4").checked ? "1" : "0";
+        const v6 = $("opt-isp-v6").checked ? "1" : "0";
+        const data = await getJSON(
+          API + "/isp-ranges?isp_id=" + encodeURIComponent(id) + "&v4=" + v4 + "&v6=" + v6 + "&limit=0"
+        );
+        const shown = renderRangeTable("isp-ranges-tbody", "isp-ranges-table-wrap", data.ranges, data.total);
+        const name = $("isp-select").selectedOptions[0] ? $("isp-select").selectedOptions[0].textContent : id;
+        let msg = "#" + id + " " + name + "  共 " + data.total + " 段";
+        if (shown < data.total) msg += "，表格展示前 " + shown + " 条";
+        status.textContent = msg;
+        status.className = "status ok";
+      } catch (e) {
+        fail(status, e);
+      }
+    }
+
+    $("btn-meta").onclick = doMeta;
     $("btn-find").onclick = () => doFind(false);
     $("btn-me").onclick = () => doFind(true);
     $("btn-ranges").onclick = doRanges;
+    $("btn-isp-ranges").onclick = doISPRanges;
+    $("isp-q").addEventListener("input", () => renderISPSelect($("isp-q").value));
+    $("isp-select").onchange = () => {
+      if ($("isp-select").value) doISPRanges();
+    };
 
-    loadMeta();
-    doFind(false);
-    renderSelects();
+    (async () => {
+      const loaded = await loadStatus();
+      if (!loaded) return;
+      doMeta();
+      doFind(false);
+      renderSelects();
+      try {
+        await loadISPs();
+      } catch (e) {
+        fail($("isp-status"), e);
+      }
+    })();
   </script>
 </body>
 

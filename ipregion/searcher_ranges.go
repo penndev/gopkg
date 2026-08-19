@@ -2,7 +2,7 @@ package ipregion
 
 import "net/netip"
 
-func (s *Searcher) scanRangesV4(idSet map[uint32]struct{}, out []Range) ([]Range, error) {
+func (s *Searcher) scanRangesV4(match func(areaID, ispID uint32) bool, out []Range) ([]Range, error) {
 	for i := 0; i < s.idx.V4Count; {
 		n := 4096
 		if i+n > s.idx.V4Count {
@@ -13,7 +13,7 @@ func (s *Searcher) scanRangesV4(idSet map[uint32]struct{}, out []Range) ([]Range
 			return nil, err
 		}
 		for j, seg := range block {
-			if _, ok := idSet[seg.AreaID]; !ok {
+			if !match(seg.AreaID, seg.ISPID) {
 				continue
 			}
 			idx := i + j
@@ -38,7 +38,7 @@ func (s *Searcher) scanRangesV4(idSet map[uint32]struct{}, out []Range) ([]Range
 	return out, nil
 }
 
-func (s *Searcher) scanRangesV6(idSet map[uint32]struct{}, out []Range) ([]Range, error) {
+func (s *Searcher) scanRangesV6(match func(areaID, ispID uint32) bool, out []Range) ([]Range, error) {
 	for i := 0; i < s.idx.V6Count; {
 		n := 4096
 		if i+n > s.idx.V6Count {
@@ -49,7 +49,7 @@ func (s *Searcher) scanRangesV6(idSet map[uint32]struct{}, out []Range) ([]Range
 			return nil, err
 		}
 		for j, seg := range block {
-			if _, ok := idSet[seg.AreaID]; !ok {
+			if !match(seg.AreaID, seg.ISPID) {
 				continue
 			}
 			idx := i + j

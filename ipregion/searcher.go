@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"strings"
 
 	"github.com/penndev/gopkg/ipregion/db"
 )
@@ -116,13 +117,81 @@ func (s *Searcher) FindRanges(areaID uint32, v4, v6 bool) ([]Range, error) {
 	var out []Range
 	var err error
 	if v4 {
-		out, err = s.scanRangesV4(idSet, out)
+		out, err = s.scanRangesV4(func(areaID, _ uint32) bool {
+			_, ok := idSet[areaID]
+			return ok
+		}, out)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if v6 {
-		out, err = s.scanRangesV6(idSet, out)
+		out, err = s.scanRangesV6(func(areaID, _ uint32) bool {
+			_, ok := idSet[areaID]
+			return ok
+		}, out)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// ISP 按 ID 返回运营商；不存在时 ok=false。
+func (s *Searcher) ISP(id uint32) (db.ISP, bool) {
+	if id == 0 {
+		return db.ISP{}, false
+	}
+	isp, ok := s.ispByID[id]
+	return isp, ok
+}
+
+// ISPs 返回全部运营商（拷贝，调用方可改）。
+func (s *Searcher) ISPs() []db.ISP {
+	out := make([]db.ISP, len(s.idx.ISPs))
+	copy(out, s.idx.ISPs)
+	return out
+}
+
+// SearchISPs 按名称子串搜索运营商（大小写不敏感）；q 为空则返回 nil。
+func (s *Searcher) SearchISPs(q string) []db.ISP {
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return nil
+	}
+	ql := strings.ToLower(q)
+	out := make([]db.ISP, 0)
+	for _, isp := range s.idx.ISPs {
+		if strings.Contains(strings.ToLower(isp.Name), ql) {
+			out = append(out, isp)
+		}
+	}
+	return out
+}
+
+// FindISPRanges 按运营商 ID 反查 IP 段。v4 / v6 分别控制是否扫描 IPv4 / IPv6。
+func (s *Searcher) FindISPRanges(ispID uint32, v4, v6 bool) ([]Range, error) {
+	if !v4 && !v6 {
+		return nil, nil
+	}
+	if ispID == 0 {
+		return nil, nil
+	}
+	if _, ok := s.ispByID[ispID]; !ok {
+		return nil, nil
+	}
+	match := func(_, id uint32) bool { return id == ispID }
+
+	var out []Range
+	var err error
+	if v4 {
+		out, err = s.scanRangesV4(match, out)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if v6 {
+		out, err = s.scanRangesV6(match, out)
 		if err != nil {
 			return nil, err
 		}

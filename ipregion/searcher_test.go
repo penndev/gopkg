@@ -118,6 +118,48 @@ func TestFindAndRangesRoundTrip(t *testing.T) {
 	if len(all) < len(d.V4)+len(d.V6) {
 		t.Fatalf("china ranges=%d", len(all))
 	}
+
+	isp, ok := s.ISP(1)
+	if !ok || isp.Name != "电信" {
+		t.Fatalf("isp=%+v ok=%v", isp, ok)
+	}
+	if _, ok := s.ISP(0); ok {
+		t.Fatal("isp id=0 should be missing")
+	}
+	if _, ok := s.ISP(999); ok {
+		t.Fatal("expected missing isp")
+	}
+
+	found := s.SearchISPs("电")
+	if len(found) != 1 || found[0].Name != "电信" {
+		t.Fatalf("SearchISPs 电=%+v", found)
+	}
+	if len(s.SearchISPs("CT")) != 0 {
+		t.Fatalf("SearchISPs CT=%+v", s.SearchISPs("CT"))
+	}
+	if s.SearchISPs("") != nil {
+		t.Fatal("empty query should be nil")
+	}
+	if allISPs := s.ISPs(); len(allISPs) != 2 || allISPs[0].Name != "电信" {
+		t.Fatalf("ISPs=%+v", allISPs)
+	}
+
+	ispRanges, err := s.FindISPRanges(1, true, true)
+	if err != nil || len(ispRanges) != 3 {
+		t.Fatalf("telecom ranges=%d err=%v", len(ispRanges), err)
+	}
+	for _, rg := range ispRanges {
+		if rg.ISP.Name != "电信" {
+			t.Fatalf("isp range %+v", rg)
+		}
+	}
+	unicom, err := s.FindISPRanges(2, true, false)
+	if err != nil || len(unicom) != 1 || unicom[0].Area.Name != "北京" {
+		t.Fatalf("unicom v4=%+v err=%v", unicom, err)
+	}
+	if got, err := s.FindISPRanges(999, true, true); err != nil || got != nil {
+		t.Fatalf("missing isp ranges=%v err=%v", got, err)
+	}
 }
 
 func TestFindRealDB(t *testing.T) {

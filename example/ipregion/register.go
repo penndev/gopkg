@@ -66,9 +66,13 @@ func Mount(mux *http.ServeMux) {
 	mux.HandleFunc("/ipregion/api/meta", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, searcher.Meta())
 	})
+	mux.HandleFunc("/ipregion/api/area", handleArea)
 	mux.HandleFunc("/ipregion/api/areas", handleAreas)
+	mux.HandleFunc("/ipregion/api/isp", handleISP)
+	mux.HandleFunc("/ipregion/api/isps", handleISPs)
 	mux.HandleFunc("/ipregion/api/find", handleFind)
 	mux.HandleFunc("/ipregion/api/ranges", handleRanges)
+	mux.HandleFunc("/ipregion/api/isp-ranges", handleISPRanges)
 }
 
 func resolveDBPath() string {
@@ -112,6 +116,25 @@ func serveIndex(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write(b)
 }
 
+func handleArea(w http.ResponseWriter, r *http.Request) {
+	idStr := strings.TrimSpace(r.URL.Query().Get("id"))
+	if idStr == "" {
+		writeErr(w, http.StatusBadRequest, "缺少参数 id")
+		return
+	}
+	n, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "无效 id")
+		return
+	}
+	area, ok := searcher.Area(uint32(n))
+	if !ok {
+		writeErr(w, http.StatusNotFound, "地域不存在")
+		return
+	}
+	writeJSON(w, area)
+}
+
 func handleAreas(w http.ResponseWriter, r *http.Request) {
 	var parentID uint32
 	if v := strings.TrimSpace(r.URL.Query().Get("parent_id")); v != "" {
@@ -123,6 +146,42 @@ func handleAreas(w http.ResponseWriter, r *http.Request) {
 		parentID = uint32(n)
 	}
 	writeJSON(w, searcher.Areas(parentID))
+}
+
+func handleISP(w http.ResponseWriter, r *http.Request) {
+	idStr := strings.TrimSpace(r.URL.Query().Get("id"))
+	if idStr == "" {
+		writeErr(w, http.StatusBadRequest, "缺少参数 id")
+		return
+	}
+	n, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "无效 id")
+		return
+	}
+	isp, ok := searcher.ISP(uint32(n))
+	if !ok {
+		writeErr(w, http.StatusNotFound, "运营商不存在")
+		return
+	}
+	writeJSON(w, isp)
+}
+
+func handleISPs(w http.ResponseWriter, r *http.Request) {
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	isps := searcher.ISPs()
+	if q != "" {
+		isps = searcher.SearchISPs(q)
+	}
+	total := len(isps)
+	limit := queryLimit(r, 0)
+	isps = clipSlice(isps, limit)
+	writeJSON(w, map[string]any{
+		"q":     q,
+		"total": total,
+		"limit": limit,
+		"isps":  isps,
+	})
 }
 
 func handleFind(w http.ResponseWriter, r *http.Request) {
@@ -161,27 +220,15 @@ func handleRanges(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "无效 area_id")
 		return
 	}
-	v4 := r.URL.Query().Get("v4") != "0"
-	v6 := r.URL.Query().Get("v6") != "0"
-	if r.URL.Query().Get("v4") == "" && r.URL.Query().Get("v6") == "" {
-		v4, v6 = true, true
-	}
-
-	limit := 200
-	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			limit = n
-		}
-	}
+	v4, v6 := queryV4V6(r)
+	limit := queryLimit(r, 200)
 	ranges, err := searcher.FindRanges(uint32(n), v4, v6)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	total := len(ranges)
-	if len(ranges) > limit {
-		ranges = ranges[:limit]
-	}
+	ranges = clipSlice(ranges, limit)
 	writeJSON(w, map[string]any{
 		"area_id": n,
 		"v4":      v4,
@@ -189,6 +236,36 @@ func handleRanges(w http.ResponseWriter, r *http.Request) {
 		"total":   total,
 		"limit":   limit,
 		"ranges":  ranges,
+	})
+}
+
+func handleISPRanges(w http.ResponseWriter, r *http.Request) {
+	idStr := strings.TrimSpace(r.URL.Query().Get("isp_id"))
+	if idStr == "" {
+		writeErr(w, http.StatusBadRequest, "缺少参数 isp_id")
+		return
+	}
+	n, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "无效 isp_id")
+		return
+	}
+	v4, v6 := queryV4V6(r)
+	limit := queryLimit(r, 200)
+	ranges, err := searcher.FindISPRanges(uint32(n), v4, v6)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	total := len(ranges)
+	ranges = clipSlice(ranges, limit)
+	writeJSON(w, map[string]any{
+		"isp_id": n,
+		"v4":     v4,
+		"v6":     v6,
+		"total":  total,
+		"limit":  limit,
+		"ranges": ranges,
 	})
 }
 
@@ -206,4 +283,33 @@ func writeJSONCode(w http.ResponseWriter, code int, v any) {
 
 func writeErr(w http.ResponseWriter, code int, msg string) {
 	writeJSONCode(w, code, map[string]string{"error": msg})
+}
+
+func queryV4V6(r *http.Request) (v4, v6 bool) {
+	v4 = r.URL.Query().Get("v4") != "0"
+	v6 = r.URL.Query().Get("v6") != "0"
+	if r.URL.Query().Get("v4") == "" && r.URL.Query().Get("v6") == "" {
+		return true, true
+	}
+	return v4, v6
+}
+
+// queryLimit 解析 limit；缺省用 def；0 表示不截断。
+func queryLimit(r *http.Request, def int) int {
+	v := strings.TrimSpace(r.URL.Query().Get("limit"))
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return def
+	}
+	return n
+}
+
+func clipSlice[T any](s []T, limit int) []T {
+	if limit > 0 && len(s) > limit {
+		return s[:limit]
+	}
+	return s
 }

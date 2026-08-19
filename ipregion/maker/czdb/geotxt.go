@@ -14,7 +14,7 @@ import (
 	"github.com/penndev/gopkg/ipregion/maker/czdb/search/db"
 )
 
-const unallocatedIANA = "未知 IANA"
+const unallocatedIANA = "IANA 未分配地址"
 
 func exportGeoTxt(workDir, key string, force bool) error {
 	jobs := []struct {
@@ -108,7 +108,7 @@ func genGEOTXTv4(czdb, key string, f *os.File) error {
 
 			geoData, err := db.GetActualGeo(s.GeoMapData, s.ColumnSelection, data)
 			if err != nil {
-				geoData = "未知"
+				geoData = "IANA 未知"
 			}
 
 			cStart := uint64(binary.BigEndian.Uint32(startIP))
@@ -188,7 +188,7 @@ func genGEOTXTv6(czdb, key string, f *os.File) error {
 
 			geoData, err := db.GetActualGeo(s.GeoMapData, s.ColumnSelection, data)
 			if err != nil {
-				geoData = "未知"
+				geoData = "IANA 未知"
 			}
 
 			cStart := new(big.Int).SetBytes(startIP)
