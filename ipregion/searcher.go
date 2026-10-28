@@ -3,73 +3,35 @@ package ipregion
 import (
 	"fmt"
 	"net/netip"
-	"os"
 	"strings"
 
 	"github.com/penndev/gopkg/ipregion/db"
 )
 
-func newSearcher(idx *db.Index) *Searcher {
-	s := &Searcher{
-		idx:           idx,
-		areaByID:      make(map[uint32]db.Area, len(idx.Areas)),
-		areasByParent: make(map[uint32][]db.Area),
-		ispByID:       make(map[uint32]db.ISP, len(idx.ISPs)),
-	}
-	for _, a := range idx.Areas {
-		s.areaByID[a.ID] = a
-		s.areasByParent[a.ParentID] = append(s.areasByParent[a.ParentID], a)
-	}
-	for _, isp := range idx.ISPs {
-		s.ispByID[isp.ID] = isp
-	}
-	return s
-}
-
-// Close 释放资源。
-func (s *Searcher) Close() error {
-	return nil
-}
+// 以下查询接口两种模式共用：段表经 s.idx 读取，字典经 s.dict 读取。
+// 没有 error 返回值的接口，在文件模式读文件失败时按“不存在”处理。
 
 func (s *Searcher) Meta() Meta {
 	return Meta{
 		Version: s.idx.Version,
 		Remark:  s.idx.Remark,
-		Areas:   len(s.idx.Areas),
-		ISPs:    len(s.idx.ISPs),
+		Areas:   s.dict.areaCount(),
+		ISPs:    s.dict.ispCount(),
 		V4:      s.idx.V4Count,
 		V6:      s.idx.V6Count,
 	}
 }
 
-// Area 按 ID 返回该地域的全部信息（含上级链 Parent）。
-// ID 不存在时返回零值且 ok=false。
-func (s *Searcher) Area(id uint32) (Area, bool) {
-	if id == 0 {
-		return Area{}, false
-	}
-	if _, ok := s.areaByID[id]; !ok {
-		return Area{}, false
-	}
-	return s.buildArea(id), true
-}
-
-// Areas 返回 parentID 的直接下级；parentID=0 为顶级地域。
-func (s *Searcher) Areas(parentID uint32) []db.Area {
-	src := s.areasByParent[parentID]
-	out := make([]db.Area, len(src))
-	copy(out, src)
-	return out
-}
-
+// Find 解析 IP 字符串（IPv4 / IPv6）并查询地域与运营商。
 func (s *Searcher) Find(ip string) (Info, error) {
 	addr, err := netip.ParseAddr(ip)
 	if err != nil {
 		return Info{}, fmt.Errorf("无效 IP: %w", err)
 	}
-	return s.FindAddr(addr.Unmap())
+	return s.FindAddr(addr)
 }
 
+// FindAddr 同 Find，入参为已解析的地址。
 func (s *Searcher) FindAddr(addr netip.Addr) (Info, error) {
 	addr = addr.Unmap()
 	if addr.Is4() {
@@ -81,60 +43,25 @@ func (s *Searcher) FindAddr(addr netip.Addr) (Info, error) {
 	return Info{}, fmt.Errorf("不支持的地址: %s", addr)
 }
 
-// FindRanges 按地域 ID 反查 IP 段：先收集该节点及全部下级 ID，再扫描段表。
-// v4 / v6 分别控制是否扫描 IPv4 / IPv6。
-func (s *Searcher) FindRanges(areaID uint32, v4, v6 bool) ([]Range, error) {
-	if !v4 && !v6 {
-		return nil, nil
+// Area 按 ID 返回该地域的全部信息（含上级链 Parent）；不存在时 ok=false。
+func (s *Searcher) Area(id uint32) (Area, bool) {
+	if id == 0 || !s.dict.hasArea(id) {
+		return Area{}, false
 	}
-	if areaID != 0 {
-		if _, ok := s.areaByID[areaID]; !ok {
-			return nil, nil
-		}
+	a, err := s.buildArea(id)
+	if err != nil {
+		return Area{}, false
 	}
+	return a, true
+}
 
-	idSet := map[uint32]struct{}{}
-	if areaID == 0 {
-		for id := range s.areaByID {
-			idSet[id] = struct{}{}
-		}
-	} else {
-		idSet[areaID] = struct{}{}
-		stack := []uint32{areaID}
-		for len(stack) > 0 {
-			id := stack[len(stack)-1]
-			stack = stack[:len(stack)-1]
-			for _, child := range s.areasByParent[id] {
-				if _, ok := idSet[child.ID]; ok {
-					continue
-				}
-				idSet[child.ID] = struct{}{}
-				stack = append(stack, child.ID)
-			}
-		}
+// Areas 返回 parentID 的直接下级；parentID=0 为顶级地域。
+func (s *Searcher) Areas(parentID uint32) []db.Area {
+	out, err := s.dict.children(parentID)
+	if err != nil {
+		return nil
 	}
-
-	var out []Range
-	var err error
-	if v4 {
-		out, err = s.scanRangesV4(func(areaID, _ uint32) bool {
-			_, ok := idSet[areaID]
-			return ok
-		}, out)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if v6 {
-		out, err = s.scanRangesV6(func(areaID, _ uint32) bool {
-			_, ok := idSet[areaID]
-			return ok
-		}, out)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
+	return out
 }
 
 // ISP 按 ID 返回运营商；不存在时 ok=false。
@@ -142,14 +69,19 @@ func (s *Searcher) ISP(id uint32) (db.ISP, bool) {
 	if id == 0 {
 		return db.ISP{}, false
 	}
-	isp, ok := s.ispByID[id]
+	isp, ok, err := s.dict.isp(id)
+	if err != nil {
+		return db.ISP{}, false
+	}
 	return isp, ok
 }
 
-// ISPs 返回全部运营商（拷贝，调用方可改）。
+// ISPs 返回全部运营商（新切片，调用方可改）。
 func (s *Searcher) ISPs() []db.ISP {
-	out := make([]db.ISP, len(s.idx.ISPs))
-	copy(out, s.idx.ISPs)
+	out := make([]db.ISP, 0, s.dict.ispCount())
+	if err := s.dict.eachISP(func(isp db.ISP) { out = append(out, isp) }); err != nil {
+		return nil
+	}
 	return out
 }
 
@@ -161,53 +93,50 @@ func (s *Searcher) SearchISPs(q string) []db.ISP {
 	}
 	ql := strings.ToLower(q)
 	out := make([]db.ISP, 0)
-	for _, isp := range s.idx.ISPs {
+	err := s.dict.eachISP(func(isp db.ISP) {
 		if strings.Contains(strings.ToLower(isp.Name), ql) {
 			out = append(out, isp)
 		}
+	})
+	if err != nil {
+		return nil
 	}
 	return out
 }
 
-// FindISPRanges 按运营商 ID 反查 IP 段。v4 / v6 分别控制是否扫描 IPv4 / IPv6。
-func (s *Searcher) FindISPRanges(ispID uint32, v4, v6 bool) ([]Range, error) {
-	if !v4 && !v6 {
+// FindRanges 按地域 ID 反查 IP 段（含全部下级）；areaID=0 表示全部地域。
+// v4 / v6 分别控制是否扫描 IPv4 / IPv6。
+func (s *Searcher) FindRanges(areaID uint32, v4, v6 bool) ([]Range, error) {
+	if areaID == 0 {
+		return s.scanRanges(func(areaID, _ uint32) bool { return s.dict.hasArea(areaID) }, v4, v6)
+	}
+	if !s.dict.hasArea(areaID) {
 		return nil, nil
 	}
-	if ispID == 0 {
-		return nil, nil
-	}
-	if _, ok := s.ispByID[ispID]; !ok {
-		return nil, nil
-	}
-	match := func(_, id uint32) bool { return id == ispID }
 
-	var out []Range
-	var err error
-	if v4 {
-		out, err = s.scanRangesV4(match, out)
-		if err != nil {
-			return nil, err
+	idSet := map[uint32]struct{}{areaID: {}}
+	stack := []uint32{areaID}
+	for len(stack) > 0 {
+		id := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		for _, child := range s.dict.childIDs(id) {
+			if _, ok := idSet[child]; ok {
+				continue
+			}
+			idSet[child] = struct{}{}
+			stack = append(stack, child)
 		}
 	}
-	if v6 {
-		out, err = s.scanRangesV6(match, out)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
+	return s.scanRanges(func(areaID, _ uint32) bool {
+		_, ok := idSet[areaID]
+		return ok
+	}, v4, v6)
 }
 
-// Open 打开 ipregion.db 文件。
-func Open(path string) (*Searcher, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+// FindISPRanges 按运营商 ID 反查 IP 段。v4 / v6 分别控制是否扫描 IPv4 / IPv6。
+func (s *Searcher) FindISPRanges(ispID uint32, v4, v6 bool) ([]Range, error) {
+	if ispID == 0 || !s.dict.hasISP(ispID) {
+		return nil, nil
 	}
-	idx, err := db.Open(raw)
-	if err != nil {
-		return nil, err
-	}
-	return newSearcher(idx), nil
+	return s.scanRanges(func(_, id uint32) bool { return id == ispID }, v4, v6)
 }

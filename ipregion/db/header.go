@@ -30,6 +30,9 @@ type HeaderOffsets struct {
 	IPv6Start, IPv6End uint32
 }
 
+// MaxHeaderSize Version / Remark 都取 255 字节时的 Header 长度。
+const MaxHeaderSize = 26 + 1 + 255 + 8*4 + 1 + 255 + 1
+
 func HeaderSize(version, remark string) int {
 	return len(Magic) + 1 + len(version) + 8*4 + 1 + len(remark) + 1
 }

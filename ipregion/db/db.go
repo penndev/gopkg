@@ -98,11 +98,11 @@ func Decode(data []byte) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	v4, err := DecodeSegmentV4(idx.v4)
+	v4, err := idx.ReadV4Block(0, idx.V4Count)
 	if err != nil {
 		return nil, err
 	}
-	v6, err := DecodeSegmentV6(idx.v6)
+	v6, err := idx.ReadV6Block(0, idx.V6Count)
 	if err != nil {
 		return nil, err
 	}

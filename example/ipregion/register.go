@@ -53,7 +53,7 @@ func Mount(mux *http.ServeMux) {
 
 	path := resolveDBPath()
 	var err error
-	searcher, err = ipregion.Open(path)
+	searcher, err = ipregion.Open(path, ipregion.ModeMemory)
 	if err != nil {
 		log.Printf("ipregion disabled (%s): %v", path, err)
 		log.Printf("获取数据库: Releases %s 或制库文档 %s", releaseTagURL, makerDocURL)

@@ -29,7 +29,7 @@ func (s *Searcher) findV4(addr netip.Addr) (Info, error) {
 	if err != nil {
 		return Info{}, err
 	}
-	return s.infoFrom(addr, seg.AreaID, seg.ISPID), nil
+	return s.infoFrom(addr, seg.AreaID, seg.ISPID)
 }
 
 func (s *Searcher) findV6(addr netip.Addr) (Info, error) {
@@ -55,29 +55,33 @@ func (s *Searcher) findV6(addr netip.Addr) (Info, error) {
 	if err != nil {
 		return Info{}, err
 	}
-	return s.infoFrom(addr, seg.AreaID, seg.ISPID), nil
+	return s.infoFrom(addr, seg.AreaID, seg.ISPID)
 }
 
-func (s *Searcher) infoFrom(addr netip.Addr, areaID, ispID uint32) Info {
-	info := Info{
-		IP:   addr,
-		Area: s.buildArea(areaID),
+func (s *Searcher) infoFrom(addr netip.Addr, areaID, ispID uint32) (Info, error) {
+	area, err := s.buildArea(areaID)
+	if err != nil {
+		return Info{}, err
 	}
-	if isp, ok := s.ispByID[ispID]; ok {
-		info.ISP = isp
+	isp, _, err := s.dict.isp(ispID)
+	if err != nil {
+		return Info{}, err
 	}
-	return info
+	return Info{IP: addr, Area: area, ISP: isp}, nil
 }
 
-func (s *Searcher) buildArea(id uint32) Area {
-	a, ok := s.areaByID[id]
-	if !ok {
-		return Area{}
+func (s *Searcher) buildArea(id uint32) (Area, error) {
+	a, ok, err := s.dict.area(id)
+	if err != nil || !ok {
+		return Area{}, err
 	}
 	out := Area{ID: a.ID, Name: a.Name}
 	if a.ParentID != 0 {
-		p := s.buildArea(a.ParentID)
+		p, err := s.buildArea(a.ParentID)
+		if err != nil {
+			return Area{}, err
+		}
 		out.Parent = &p
 	}
-	return out
+	return out, nil
 }

@@ -1,11 +1,13 @@
 package db
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 )
 
-// Index 查询用内存索引：字典已解析，段表保留解压后的定长字节数组以便二分。
+// Index 查询用索引：字典已解析，段表为解压后的定长字节，通过 io.ReaderAt 按下标读取以便二分。
 type Index struct {
 	Version string
 	Remark  string
@@ -14,11 +16,34 @@ type Index struct {
 	Areas []Area
 	ISPs  []ISP
 
-	v4 []byte
-	v6 []byte
+	v4 io.ReaderAt
+	v6 io.ReaderAt
 
 	V4Count int
 	V6Count int
+}
+
+// NewIndex 由已解析的字典与解压后的段表（v4Size / v6Size 为字节数）构建索引。
+// v4 / v6 需支持并发 ReadAt（如 *bytes.Reader、*os.File）。
+func NewIndex(version, remark string, off HeaderOffsets, areas []Area, isps []ISP,
+	v4 io.ReaderAt, v4Size int64, v6 io.ReaderAt, v6Size int64) (*Index, error) {
+	if v4Size%SegmentV4Size != 0 {
+		return nil, fmt.Errorf("v4 size %d not multiple of %d", v4Size, SegmentV4Size)
+	}
+	if v6Size%SegmentV6Size != 0 {
+		return nil, fmt.Errorf("v6 size %d not multiple of %d", v6Size, SegmentV6Size)
+	}
+	return &Index{
+		Version: version,
+		Remark:  remark,
+		Off:     off,
+		Areas:   areas,
+		ISPs:    isps,
+		v4:      v4,
+		v6:      v6,
+		V4Count: int(v4Size / SegmentV4Size),
+		V6Count: int(v6Size / SegmentV6Size),
+	}, nil
 }
 
 // Open 从正式库字节流构建查询索引（不解出全部 Segment 切片）。
@@ -27,7 +52,7 @@ func Open(data []byte) (*Index, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := checkOff(off, uint32(len(data))); err != nil {
+	if err := CheckOffsets(off, uint32(len(data))); err != nil {
 		return nil, err
 	}
 
@@ -60,40 +85,46 @@ func Open(data []byte) (*Index, error) {
 			return nil, fmt.Errorf("isp json: %w", err)
 		}
 	}
-	if len(v4Raw)%SegmentV4Size != 0 {
-		return nil, fmt.Errorf("v4 size %d not multiple of %d", len(v4Raw), SegmentV4Size)
+	var prev uint32
+	for _, a := range areas {
+		if err := CheckArea(prev, a); err != nil {
+			return nil, err
+		}
+		prev = a.ID
 	}
-	if len(v6Raw)%SegmentV6Size != 0 {
-		return nil, fmt.Errorf("v6 size %d not multiple of %d", len(v6Raw), SegmentV6Size)
+	prev = 0
+	for _, isp := range isps {
+		if err := CheckISP(prev, isp); err != nil {
+			return nil, err
+		}
+		prev = isp.ID
 	}
 
-	return &Index{
-		Version: version,
-		Remark:  remark,
-		Off:     off,
-		Areas:   areas,
-		ISPs:    isps,
-		v4:      v4Raw,
-		v6:      v6Raw,
-		V4Count: len(v4Raw) / SegmentV4Size,
-		V6Count: len(v6Raw) / SegmentV6Size,
-	}, nil
+	return NewIndex(version, remark, off, areas, isps,
+		bytes.NewReader(v4Raw), int64(len(v4Raw)),
+		bytes.NewReader(v6Raw), int64(len(v6Raw)))
 }
 
 func (idx *Index) V4At(i int) (SegmentV4, error) {
 	if i < 0 || i >= idx.V4Count {
 		return SegmentV4{}, fmt.Errorf("v4 index %d out of range", i)
 	}
-	off := i * SegmentV4Size
-	return DecodeSegmentV4One(idx.v4[off : off+SegmentV4Size]), nil
+	var b [SegmentV4Size]byte
+	if _, err := idx.v4.ReadAt(b[:], int64(i)*SegmentV4Size); err != nil {
+		return SegmentV4{}, fmt.Errorf("v4 read %d: %w", i, err)
+	}
+	return DecodeSegmentV4One(b[:]), nil
 }
 
 func (idx *Index) V6At(i int) (SegmentV6, error) {
 	if i < 0 || i >= idx.V6Count {
 		return SegmentV6{}, fmt.Errorf("v6 index %d out of range", i)
 	}
-	off := i * SegmentV6Size
-	return DecodeSegmentV6One(idx.v6[off : off+SegmentV6Size]), nil
+	var b [SegmentV6Size]byte
+	if _, err := idx.v6.ReadAt(b[:], int64(i)*SegmentV6Size); err != nil {
+		return SegmentV6{}, fmt.Errorf("v6 read %d: %w", i, err)
+	}
+	return DecodeSegmentV6One(b[:]), nil
 }
 
 func (idx *Index) ReadV4Block(startIdx, maxN int) ([]SegmentV4, error) {
@@ -103,8 +134,11 @@ func (idx *Index) ReadV4Block(startIdx, maxN int) ([]SegmentV4, error) {
 	if startIdx+maxN > idx.V4Count {
 		maxN = idx.V4Count - startIdx
 	}
-	off := startIdx * SegmentV4Size
-	return DecodeSegmentV4(idx.v4[off : off+maxN*SegmentV4Size])
+	b := make([]byte, maxN*SegmentV4Size)
+	if _, err := idx.v4.ReadAt(b, int64(startIdx)*SegmentV4Size); err != nil {
+		return nil, fmt.Errorf("v4 read block %d: %w", startIdx, err)
+	}
+	return DecodeSegmentV4(b)
 }
 
 func (idx *Index) ReadV6Block(startIdx, maxN int) ([]SegmentV6, error) {
@@ -114,11 +148,15 @@ func (idx *Index) ReadV6Block(startIdx, maxN int) ([]SegmentV6, error) {
 	if startIdx+maxN > idx.V6Count {
 		maxN = idx.V6Count - startIdx
 	}
-	off := startIdx * SegmentV6Size
-	return DecodeSegmentV6(idx.v6[off : off+maxN*SegmentV6Size])
+	b := make([]byte, maxN*SegmentV6Size)
+	if _, err := idx.v6.ReadAt(b, int64(startIdx)*SegmentV6Size); err != nil {
+		return nil, fmt.Errorf("v6 read block %d: %w", startIdx, err)
+	}
+	return DecodeSegmentV6(b)
 }
 
-func checkOff(off HeaderOffsets, size uint32) error {
+// CheckOffsets 校验 Header 中四段区间都落在 [0,size) 内。
+func CheckOffsets(off HeaderOffsets, size uint32) error {
 	check := func(start, end uint32, name string) error {
 		if start > end || end > size {
 			return fmt.Errorf("%s 区间无效: [%d,%d) file=%d", name, start, end, size)

@@ -2,6 +2,7 @@ package ipregion
 
 import (
 	"net/netip"
+	"os"
 
 	"github.com/penndev/gopkg/ipregion/db"
 )
@@ -30,7 +31,7 @@ type Info struct {
 	ISP  db.ISP
 }
 
-// Range 一条连续 IP 段（start 含，end 含）。
+// Range 一条连续 IP 段（Start、End 均含）。
 type Range struct {
 	Start netip.Addr
 	End   netip.Addr
@@ -38,13 +39,13 @@ type Range struct {
 	ISP   db.ISP
 }
 
-// Searcher 只读查询器：Open 时读入并解压四段载荷，段表在内存中二分。
+// Searcher 只读查询器，由 Open 创建，可并发查询。打开模式见 Mode。
 type Searcher struct {
+	// 段表：内存模式底层是 []byte，文件模式底层是临时文件
 	idx *db.Index
-	// ID → 区域
-	areaByID map[uint32]db.Area
-	// 父 ID → 直接下级
-	areasByParent map[uint32][]db.Area
-	// ISP ID → ISP
-	ispByID map[uint32]db.ISP
+	// 字典：内存模式为 memDict，文件模式为 fileDict
+	dict dict
+	// 文件模式的临时目录与其中已打开的文件；内存模式为空
+	tmpDir string
+	files  []*os.File
 }
